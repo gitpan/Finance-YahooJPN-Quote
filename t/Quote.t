@@ -3,7 +3,7 @@ use 5.008;
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More tests => 7;
 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl 1.t'
@@ -41,9 +41,8 @@ while (<DATA>) {
 my $noadjust = join '', @noadjust;
 my $adjust   = join '', @adjust;
 
-$obj1->fetch('start' => '1999-06-01');
-$obj1->extract('noadjust' => 1);
-my @tmp = $obj1->output();
+$obj1->scan('start' => '1999-06-01');
+my @tmp = $obj1->output('noadjust' => 1);
 my @quote;
 for (my $i = 0; $i <= $#tmp; $i++) {
 	last if $tmp[$i] =~ /2003-09-29/;
@@ -51,14 +50,12 @@ for (my $i = 0; $i <= $#tmp; $i++) {
 }
 my $quote = join '', @quote;
 
-
 is( $quote, $noadjust,
-	'run fetch() and extract() method w/o adjustment for the splits' );
+	'run scan() method w/o adjustment for the splits' );
 
 #######################################################
 my $obj2 = Finance::YahooJPN::Quote->new('9437.t');
-$obj2->fetch('start' => '1999-06-01');
-$obj2->extract();
+$obj2->scan('start' => '1999-06-01');
 @tmp = $obj2->output();
 @quote = ();
 for (my $i = 0; $i <= $#tmp; $i++) {
@@ -68,7 +65,7 @@ for (my $i = 0; $i <= $#tmp; $i++) {
 $quote = join '', @quote;
 
 is( $quote, $adjust,
-	'run fetch() and extract() method w/  adjustment for the splits' );
+	'run scan() method w/  adjustment for the splits' );
 
 #######################################################
 @tmp = Finance::YahooJPN::Quote->historical('9437.t', 'Start' => '1999-06-01');
@@ -79,7 +76,27 @@ for (my $i = 0; $i <= $#tmp; $i++) {
 }
 $quote = join '', @quote;
 is( $quote, $adjust,
-	'run historical() method (includes new(), fetch(), extract() and output())' );
+	'run historical() method (includes new(), scan() and output())' );
+
+#######################################################
+my $obj3 = Finance::YahooJPN::Quote->new('9437.t');
+$obj3->scan('start' => '2002-03-26', 'last' => '2002-03-26');
+@tmp = $obj3->output();
+$quote = $tmp[0];
+my $expected = '2002-03-26	341000	351000	329000	333000	208021';
+
+is( $quote, $expected,
+	'in a rare case split data is at the top row' );
+
+#######################################################
+my $obj4 = Finance::YahooJPN::Quote->new('0000.t');
+$obj4->scan('start' => '2003-09-01', 'last' => '2003-09-30');
+@tmp = $obj4->output();
+$quote = join "\n", @tmp;
+$expected = '';
+
+is( $quote, $expected,
+	'in a case the specified symbol is absent' );
 
 __END__
 1999-06-01	6850000	7030000	6820000	7030000	4074

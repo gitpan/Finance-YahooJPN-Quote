@@ -1,5 +1,13 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+0.10  2003-10-04 03:54:56 JST
+	- structual redesign, restruction and rewrite of the module
+	  enables much more improved and higher performance both
+	  in speed and in memory usage.
+	- methods are also almost renewed: new(), scan(), output()
+	  and historical() are of all the methods.
+	  see POD anew for the details.
+
 0.09  2003-10-03 00:00:55 JST
 	- new(): letter extention of an exchange market is now omittable.
 

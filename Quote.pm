@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = '0.09'; # 2003-10-03 (since 2001-05-30)
+our $VERSION = '0.10'; # 2003-10-04 (since 2001-05-30)
 
 use Carp;
 use LWP::Simple;
@@ -27,7 +27,7 @@ Finance::YahooJPN::Quote - fetch a quote of Japanese stock market
 
 =head1 DESCRIPTION
 
-Historical quote data is basis for analyzing stock market. In Japan, standard quote data is indicated as a set of data: four prices (open, high, low, close) and volume of each day. This module provides module user some functions to get historical quote of a company.
+Historical quote data is basis for analyzing stock market. Here in Japan, standard quote data is indicated as a set of data: four prices (open, high, low, close) and volume for each day. This module provides module user some functions to get historical quote of a company.
 
 =cut
 
@@ -46,9 +46,9 @@ undef $Japan_Standard_Time;
 
 =item historical($symbol [, 'start' => $start] [, 'noadjust' => 1])
 
-This class method automatically C<new()>, C<fetch()> and C<extract()> then C<output()>.
+This class method automatically C<new()> and C<scan()> then C<output()> a historical series of quote of the stock which specified with C<$symbol> argument.
 
-See the descriptions about the following methods for the attributes: C<$symbol>, C<start> and C<noadjust>.
+See the descriptions about the following methods for the argument and attributes: C<$symbol>, C<start> and C<noadjust>.
 
 =cut
 
@@ -61,31 +61,31 @@ sub historical {
 		my $lowercase = $key;
 		$lowercase =~ tr/A-Z/a-z/;
 		unless ($lowercase eq 'start' or $lowercase eq 'noadjust') {
-			croak "Invalid attribute name: $key";
+			carp "unknown attribute name: $key (will be ignored)";
 		}
 		$option{$lowercase} = $option{$key};
 	}
 	
 	if ($option{'start'}) {
-		$self->fetch('start' => $option{'start'});
+		$self->scan('start' => $option{'start'});
 	}
 	else {
-		$self->fetch();
+		$self->scan();
 	}
-	if ($option{'noadjust'}) {
-		$self->extract('noadjust' => $option{'noadjust'});
+	
+	if ($option{'noadjust'} and $option{'noadjust'} == 1) {
+		$self->output('noadjust' => 1);
 	}
 	else {
-		$self->extract();
+		$self->output();
 	}
-	$self->output();
 }
 
 =item new($symbol)
 
 Constructor class method. A stock C<$symbol> should be given with 4-digit code number and optionaly followed by a letter extension (dot `.' and an alphabet). (i.e. `6758' or `6758.t')
 
-Japanese stock markets use 4-digit code number as stock symbol. Plus, add an alphabetical letter extention to indicate its exchange market. For example, the stock symbol code of Sony Corp. is '6758' and the letter extention of the Tokyo Stock Exchange is '.t'. Hence, the stock quote of the Sony Corp. at Tokyo Stock Exchange is specified as '6758.t'.
+Japanese stock market use 4-digit code number as a stock symbol. Plus, add an alphabetical letter extention to indicate its exchange market. For example, the stock symbol code of Sony Corp. is '6758' and the letter extention of Tokyo Stock Exchange is '.t'. Hence, the stock quote of Sony Corp. at Tokyo Stock Exchange is specified as '6758.t'.
 
 According to the Yahoo-Japan-Finance's description L<http://help.yahoo.co.jp/help/jp/fin/quote/stock/quote_02.html> the letter extentions of each exchange market are:
 
@@ -118,17 +118,19 @@ sub new {
 	return $self;
 }
 
-=item fetch(['start' => $start])
+=item scan(['start' => $start])
 
-This object method fetches the stock's historical quote pages of Yahoo-Japan-Finance from the C<$start> date to the current date.
+This object method scans the stock's historical quote pages of Yahoo-Japan-Finance from the C<$start> date to the current date. And picks up quote data of each day from that pages.
 
 A C<$start> date should be given in the format `YYYY-MM-DD' (ex. `2003-08-14'). Be careful, don't forget to quote the word, because bare word 2000-01-01 will be comprehend by Perl as '2000 - 1 - 1 = 1998'. This attribute is omittable. The default value of C<$start> is '1980-01-01'.
 
-You cannot specify the last date. Because, to find the splits you must scan all of the quote from the start date. Without the splits data, estimation of adjustment for the splits cannot do exactly.
+You cannot specify the last date. Because, to find the splits you must scan all of the quote from the start date. Without the splits data, estimation of adjustment for the splits cannot be done exactly.
+
+Note that a datetime for this module is based on JST (Japan Standard Time: GMT +09:00).
 
 =cut
 
-sub fetch {
+sub scan {
 	my($self, %term) = @_;
 	
 	$self->{'start'} = '1980-01-01';
@@ -138,7 +140,7 @@ sub fetch {
 		my $lowercase = $key;
 		$lowercase =~ tr/A-Z/a-z/;
 		unless ($lowercase eq 'start' or $lowercase eq 'last') {
-			croak "Invalid attribute name: $key";
+			carp "unknown attribute name: $key (will be ignored)";
 		}
 		unless ($term{$key} =~ /^\d{4}-\d{2}-\d{2}$/) {
 			croak "A date should be given in the format `YYYY-MM-DD'. (ex. `2003-08-14')";
@@ -170,154 +172,128 @@ sub fetch {
 			last;
 		}
 		
-		push @remotedoc, $remotedoc;
+		$self->_collect($remotedoc);
 	}
-	
-	@{ $self->{'fetched'} } = @remotedoc;
 	
 	return $self;
 }
 
-=item extract(['noadjust' => 1])
-
-This object method extracts the stock's historical quote data from fetched pages of Yahoo-Japan-Finance.
-
-The C<noadjust> option can turn on/off the function of value adjustment for the splits. If you omit this option or set this value '0', adjustment function is effective (default). If you set this value other than '0', adjustment function is ineffective.
-
-=cut
-
-sub extract {
-	my($self, %noadjust) = @_;
+# _collect($html)
+# This private object method collects a stock's historical quote
+# of a C<$html> page fetched from Yahoo-Japan-Finance.
+sub _collect {
+	my($self, $html) = @_;
 	
-	# in case the symbol is invalid (no data exists)
-	unless (@{ $self->{'fetched'} }) {
-		return $self;
+	# newline character unification
+	$html =~ s/\x0D\x0A|\x0D|\x0A/\n/g;
+	# split the page to lines
+	my @html = split /\n/, $html;
+	
+	# discard useless lines before the quote rows.
+	while (@html) {
+		my $line = shift @html;
+		last if $line =~ m|^<tr bgcolor="#dcdcdc"><th>日付</th><th>始値</th><th>高値</th><th>安値</th><th>終値</th><th>出来高</th><th>調整後終値\*</th></tr>$|;
 	}
 	
-	for (my $i = 0; $i <= $#{ $self->{'fetched'} }; $i++) {
-		# split the page to lines
-		my @page = split /\n/, $self->{'fetched'}->[$i];
-		
-		# remove lines before & after the quote data rows.
-		my($cut_from_here, $cut_by_here);
-		for (my $j = 0; $j <= $#page; $j++) {
-			if ($page[$j] =~ m|^<tr bgcolor="#dcdcdc"><th>日付</th><th>始値</th><th>高値</th><th>安値</th><th>終値</th><th>出来高</th><th>調整後終値\*</th></tr>$|)
-			{
-				$cut_from_here = $j + 2;
-				unless ($page[$cut_from_here - 1] =~ m/^<tr$/) {
-					# only in the case split row is the top row
-					$cut_from_here--;
-				}
-			}
-		}
-		for (my $j = $cut_from_here; $j <= $#page; $j++) {
-			if ($page[$j] =~ m|</table>|) {
-				$cut_by_here = $j;
-				last;
-			}
-		}
-		
-		# restruct a new list with the quote data rows
-		my @table;
-		for (my $j = $cut_from_here; $j <= $cut_by_here; $j++) {
-			push @table, $page[$j];
-		}
-		
-		# remove needless texts at the head of the lines
-		# (except for the top split row)
-		foreach my $row (@table) {
-			$row =~ s/^align=right><td>//;
-		}
-		
-		foreach my $row (@table) {
-			my ($date, $open, $high, $low, $close, $volume, $extra);
-			# in the case the row is the top split row
-			if ($row =~ m/^<tr><td align=right>/) {
-				$row =~ s/<tr><td align=right>/><td align=right>/;
-				$row =~ s|</td></tr><tr$||;
-				$extra = $row;
-			}
-			# this case is normal: quote data rows
-			else {
-				# split the line with </td><td>
-				($date, $open, $high, $low, $close, $volume, $extra) =
-					split /<\/td><td>/, $row;
-				$close =~ s|<b>(.*?)</b>|$1|;
-				
-				# changing date & numeric formats
-				$date =~ s/(\d{4})年(\d{1,2})月(\d{1,2})日/$1-$2-$3/;
-				$date =~ s/-(\d)-/-0$1-/;
-				$date =~ s/-(\d)$/-0$1/;
-				foreach my $number ($open, $high, $low, $close, $volume) {
-					$number =~ tr/,//d;
-				}
-				
-				$row = join "\t", ($date, $open, $high, $low, $close, $volume);
-				# store the quote data in the style just we've wanted ever!
-				push @{ $self->{'quote'} }, $row;
-			}
-			
-			# here it is, another splits infomations...
-			# remove the bottom row. you don't worry, because a split
-			# row will never appears in the bottom row.
-			$extra =~ s|^.*</table>$||;
-			# if the row data don't contain the split data, it is
-			# converted to a bulk data ('').
-			$extra =~ s|^.*?</td></tr><tr||;
-			# find the splits!
-			unless ($extra eq '') {
-				$extra =~ s|><td align=right>(\d{4})年(\d{1,2})月(\d{1,2})日</td><td colspan=6 align=center>分割: (.*?)株 -> (.*?)株.*|$1-$2-$3\t$4\t$5|;
-				$extra =~ s/-(\d)-/-0$1-/;
-				$extra =~ s/-(\d)\t/-0$1\t/;
-				push @{ $self->{'splits'} }, $extra;
-			}
-		}
+	# discard again the next line
+	unless ($html[0] eq "<tr") {
+		# this row is information of a split
+		$self->_pickup_split($html[0]);
+	}
+	shift @html;
 	
-   	}
-	
-	if (%noadjust) {
-		foreach my $key (keys %noadjust) {
-			my $lowercase = $key;
-			$lowercase =~ tr/A-Z/a-z/;
-			unless ($lowercase eq 'noadjust') {
-				croak "Invalid attribute name: $key";
-			}
-			unless ($noadjust{$key} != 0) {
-				$self->_adjustment();
-			}
+	foreach my $line (@html) {
+		if ($line =~ m/^align=right><td>\d{4}年/) {
+			# this row is a quote
+			$self->_pickup($line);
+		}
+		else {
+			last;
 		}
 	}
-    else {
-		$self->_adjustment();
-    }
 	
-	@{ $self->{'quote'} } = reverse @{ $self->{'quote'} };
+	$self->_adjustment();
 	
 	return $self;
 }
 
+# _pickup($row)
+# This private object method picks up a quote data in a row.
+sub _pickup {
+	my($self, $row) = @_;
+	
+	$row =~ m|^align=right><td>(\d{4})年(\d{1,2})月(\d{1,2})日</td><td>(.+?)</td><td>(.+?)</td><td>(.+?)</td><td><b>(.+?)</b></td><td>(.+?)</td><td>.+?</td>(.+?)$|;
+	
+	my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
+	
+	my($open, $high, $low, $close, $volume) = ($4, $5, $6, $7, $8);
+	foreach my $num ($open, $high, $low, $close, $volume) {
+		$num =~ tr/,//d;
+	}
+	
+	my $extra = $9;
+	if ($extra =~ m|<tr><td align=right>\d{4}年|) {
+		# this row is information of a split
+		$self->_pickup_split($extra);
+	}
+	
+	# store the quote data as a package variable
+	$row = join "\t", $date, $open, $high, $low, $close, $volume;
+	unshift @{ $self->{'q_noadjust'} }, $row;
+	
+	return $self;
+}
+
+# _pickup_split($row)
+# This private object method picks up a split data in a row.
+sub _pickup_split {
+	my($self, $row) = @_;
+	
+	$row =~ m|^.+?<td align=right>(\d{4})年(\d{1,2})月(\d{1,2})日</td><td colspan=6 align=center>分割: (.+?)株 -> (.+?)株</td></tr><tr$|;
+	
+	my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
+	
+	my($split_pre, $split_post) = ($4, $5);
+	
+	# store the split data as a package variable
+	$row = join "\t", $date, $split_pre, $split_post;
+	push @{ $self->{'splits'} }, $row;
+	
+	return $self;
+}
+
+# _adjustment()
+# This private object method calculates a stock's historical quote
+# data which is adjusted for splits.
 sub _adjustment {
 	my $self = shift;
 	
-	my $j = 0;
+	@{ $self->{'q_adjust'} } = @{ $self->{'q_noadjust'} };
+	my $last = $#{ $self->{'q_adjust'} };
+	
+	my $j = $last;
 	for (my $k = 0; $k <= $#{ $self->{'splits'} }; $k++) {
-		my ($split_date, $split_pre, $split_post) =
+		my($split_date, $split_pre, $split_post) =
 			split /\t/, $self->{'splits'}->[$k];
-		for (my $i = $j; $i <= $#{ $self->{'quote'} }; $i++) {
-			my $date = ( split /\t/, $self->{'quote'}->[$i] )[0];
+		
+		for (my $i = $j; $i >= 0; $i--) {
+			my $date = ( split /\t/, $self->{'q_adjust'}->[$i] )[0];
 			if ($date eq $split_date) {
-				$j = $i + 1;
+				$j = $i - 1;
 				last;
 			}
 		}
-		for (my $i = $j; $i <= $#{ $self->{'quote'} }; $i++) {
+		
+		for (my $i = 0; $i <= $j; $i++) {
 			my($date, $open, $high, $low, $close, $volume) =
-				split /\t/, $self->{'quote'}->[$i];
+				split /\t/, $self->{'q_adjust'}->[$i];
+			
 			foreach my $price ($open, $high, $low, $close) {
 				$price = int($price * $split_pre / $split_post + 0.5);
 			}
 			$volume = int($volume * $split_post / $split_pre + 0.5);
-			$self->{'quote'}->[$i] =
+			
+			$self->{'q_adjust'}->[$i] =
 				"$date\t$open\t$high\t$low\t$close\t$volume";
 		}
 	}
@@ -325,23 +301,39 @@ sub _adjustment {
 	return 1;
 }
 
-=item output()
+=item output(['noadjust' => 1])
 
-This object method returns the extracted quote as a list.
+This object method returns the collected quote data as a list.
+
+The C<noadjust> option can turn on/off the function of value adjustment for the splits. If you omit this option or set this value '0', adjustment function is effective (default). If you set this value other than '0', adjustment function is ineffective.
+
+The data is formatted as TSV (Tab Separated Values). Each row represents quote of each day in the order with 1)date, 2)open, 3)high, 4)low, 5)close and 6)volume.
 
 =back
 
 =cut
 
 sub output {
-	my $self = shift;
+	my($self, %noadjust) = @_;
 	
 	# in case the symbol is invalid (no data exists)
-	unless (@{ $self->{'fetched'} }) {
+	unless (exists $self->{'q_noadjust'}) {
 		return;
 	}
-	
-	return @{ $self->{'quote'} };
+	if (%noadjust) {
+		foreach my $key (keys %noadjust) {
+			my $lowercase = $key;
+			$lowercase =~ tr/A-Z/a-z/;
+			unless ($lowercase eq 'noadjust') {
+				carp "unknown attribute name: $key (will be ignored)";
+			}
+			if ($noadjust{$key} != 0) {
+				return @{ $self->{'q_noadjust'} };
+			}
+		}
+	}
+ 	
+	return @{ $self->{'q_adjust'} };
 }
 
 1;
@@ -349,7 +341,7 @@ __END__
 
 =head1 NOTES
 
-The mudule calculates adjusted values originally including closing price. The only adjusted values which Yahoo presents are closing prices, and those numbers are not rounded but cut for decimal fractions. For this reason, I decided to ignore Yahoo's adjusted values (that's why some adjusted closing prices are different from Yahoo's).
+The mudule calculates adjusted values originally including closing prices. The only adjusted values which Yahoo-Japan-Finance presents are closing prices, and those numbers are not rounded but cut for decimal fractions. For this reason, I have decided to ignore Yahoo-Japan-Finance's adjusted closing prices. That is why some adjusted closing prices are different from Yahoo-Japan-Finance's.
 
 =head1 AUTHOR
 

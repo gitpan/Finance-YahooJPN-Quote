@@ -1,4 +1,4 @@
-Finance::YahooJPN::Quote version 0.10
+Finance::YahooJPN::Quote version 0.11
 =====================================
 
  This module provides you functions to fetch a quote of 
@@ -21,10 +21,6 @@ INSTALLATION
 DEPENDENCIES
 
  This module requires perl5.8 or later.
- And,
- this module requires these other modules and libraries:
-
-   LWP::Simple
 
 COPYRIGHT AND LICENCE
 

@@ -5,10 +5,10 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = '0.10'; # 2003-10-04 (since 2001-05-30)
+our $VERSION = '0.11'; # 2003-10-04 (since 2001-05-30)
 
 use Carp;
-use LWP::Simple;
+use IO::Socket;
 use Encode;
 
 =head1 NAME
@@ -39,6 +39,8 @@ my $Today = join '-', (
 	sprintf('%02d', ( gmtime($Japan_Standard_Time) )[3]       ),
 );
 undef $Japan_Standard_Time;
+
+my $Server = 'chart.yahoo.co.jp';
 
 =head1 METHODS
 
@@ -156,8 +158,8 @@ sub scan {
 	my @remotedoc;
 	for (my $page = 0; ; $page++) {
 		my $y = $page * 50; # 50rows/1page is max at Yahoo-Japan-Finance
-		my $url = "http://chart.yahoo.co.jp/t?a=$month_a&b=$day_a&c=$year_a&d=$month_z&e=$day_z&f=$year_z&g=d&s=$self->{'symbol'}&y=$y";
-		my $remotedoc = decode('euc-jp', get($url));
+		my $abs_path = "/t?a=$month_a&b=$day_a&c=$year_a&d=$month_z&e=$day_z&f=$year_z&g=d&s=$self->{'symbol'}&y=$y";
+		my $remotedoc = decode( 'euc-jp', $self->_fetch($abs_path) );
 		
 		# testing it is valid symbol or not.
 		if ($remotedoc =~ m/のデータはありません。/) {
@@ -178,14 +180,39 @@ sub scan {
 	return $self;
 }
 
+# _fetch($url)
+# This private method fetches a web page.
+sub _fetch {
+	my($self, $abs_path) = @_;
+	
+	my $sock = IO::Socket::INET->new(
+		PeerAddr => $Server,
+		PeerPort => 'http(80)',
+		Proto    => 'tcp',
+	) or die "Couldn't connect to $Server";
+	
+	print $sock <<"EOF";
+GET $abs_path HTTP/1.1
+Host: $Server
+
+EOF
+	
+	my @html = <$sock>;
+	close $sock;
+	
+	my $html = join '', @html;
+	# newline character unification
+	$html =~ s/\x0D\x0A|\x0D|\x0A/\n/g;
+	
+	return $html;
+}
+
 # _collect($html)
 # This private object method collects a stock's historical quote
 # of a C<$html> page fetched from Yahoo-Japan-Finance.
 sub _collect {
 	my($self, $html) = @_;
 	
-	# newline character unification
-	$html =~ s/\x0D\x0A|\x0D|\x0A/\n/g;
 	# split the page to lines
 	my @html = split /\n/, $html;
 	

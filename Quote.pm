@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = '0.12'; # 2003-10-05 (since 2001-05-30)
+our $VERSION = '0.13'; # 2004-11-13 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
@@ -40,7 +40,7 @@ my $Today = join '-', (
 );
 undef $Japan_Standard_Time;
 
-my $Server = 'chart.yahoo.co.jp';
+my $Server = 'table.yahoo.co.jp';
 
 =head1 METHODS
 
@@ -166,11 +166,11 @@ sub scan {
 			last;
 		}
 		# testing it is valid term or not.
-		if ($remotedoc =~ m/この期間の価格はありません。/) {
+		if ($remotedoc =~ m/この検索期間の価格データはありません。/) {
 			last;
 		}
 		# testing whether it is the final page (with bulk rows) or not
-		if ($remotedoc =~ m|\n<tr bgcolor="#dcdcdc"><th>日付</th><th>始値</th><th>高値</th><th>安値</th><th>終値</th><th>出来高</th><th>調整後終値\*</th></tr>\n</table>\n|) {
+		unless ($remotedoc =~ m|<tr bgcolor="#eeeeee"><th><small>日付</small></th><th><small>始値|) {
 			last;
 		}
 		
@@ -219,7 +219,7 @@ sub _collect {
 	# discard useless lines before the quote rows.
 	while (@html) {
 		my $line = shift @html;
-		last if $line =~ m|^<tr bgcolor="#dcdcdc"><th>日付</th><th>始値</th><th>高値</th><th>安値</th><th>終値</th><th>出来高</th><th>調整後終値\*</th></tr>$|;
+		last if $line =~ m|^<tr bgcolor="#eeeeee"><th><small>日付</small></th><th><small>始値|;
 	}
 	
 	# discard again the next line
@@ -230,7 +230,7 @@ sub _collect {
 	shift @html;
 	
 	foreach my $line (@html) {
-		if ($line =~ m/^align=right><td>\d{4}年/) {
+		if ($line =~ m/^align=right bgcolor="#ffffff"><td><small>\d{4}年/) {
 			# this row is a quote
 			$self->_pickup($line);
 		}
@@ -249,7 +249,7 @@ sub _collect {
 sub _pickup {
 	my($self, $row) = @_;
 	
-	$row =~ m|^align=right><td>(\d{4})年(\d{1,2})月(\d{1,2})日</td><td>(.+?)</td><td>(.+?)</td><td>(.+?)</td><td><b>(.+?)</b></td><td>(.+?)</td><td>.+?</td>(.+?)$|;
+	$row =~ m|^align=right bgcolor="#ffffff"><td><small>(\d{4})年(\d{1,2})月(\d{1,2})日</small></td><td><small>(.+?)</small></td><td><small>(.+?)</small></td><td><small>(.+?)</small></td><td><small><b>(.+?)</b></small></td><td><small>(.+?)</small></td><td><small>.+?</small></td>(.+?)$|;
 	
 	my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
 	
@@ -259,7 +259,7 @@ sub _pickup {
 	}
 	
 	my $extra = $9;
-	if ($extra =~ m|<tr><td align=right>\d{4}年|) {
+	if ($extra =~ m|<tr bgcolor="#ffffff"><td align=right bgcolor="#ffffff"><font size=-1>\d{4}年|) {
 		# this row is information of a split
 		$self->_pickup_split($extra);
 	}
@@ -280,7 +280,7 @@ sub _pickup_split {
 	my @string = split m|</td></tr><tr>|, $row;
 	
 	foreach my $string (@string) {
-		$string =~ m|^.*?<td align=right>(\d{4})年(\d{1,2})月(\d{1,2})日</td><td colspan=6 align=center>分割: (.+?)株 -> (.+?)株.*?$|;
+		$string =~ m|^.*?<font size=-1>(\d{4})年(\d{1,2})月(\d{1,2})日</font></td><td colspan=6 align=center><font size=-1>分割: (.+?)株 -> (.+?)株.*?$|;
 		
 		my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
 		
@@ -381,7 +381,7 @@ Masanori HATA E<lt>lovewing@dream.big.or.jpE<gt> (Saitama, JAPAN)
 
 =head1 COPYRIGHT
 
-Copyright (c)2001-2003 Masanori HATA. All rights reserved.
+Copyright (c)2001-2004 Masanori HATA. All rights reserved.
 
 This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 

@@ -4,3 +4,4 @@ Makefile.PL		writes the Makefile
 MANIFEST		(this file)
 README			for the short descriptions about install
 t/Quote.t		test script for the Finance::YahooJPN::Quote
+META.yml                                 Module meta-data (added by MakeMaker)

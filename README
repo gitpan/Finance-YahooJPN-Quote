@@ -1,4 +1,4 @@
-Finance::YahooJPN::Quote version 0.12
+Finance::YahooJPN::Quote version 0.13
 =====================================
 
  This module provides you functions to fetch a quote of 
@@ -20,11 +20,11 @@ INSTALLATION
 
 DEPENDENCIES
 
- This module requires perl5.8 or later.
+ This module requires perl 5.8 or later.
 
 COPYRIGHT AND LICENCE
 
- Copyright (c) 2001-2003 Masanori HATA. All rights reserved.
+ Copyright (c) 2001-2004 Masanori HATA. All rights reserved.
 
  This program is free software; you can redistribute it and/or
  modify it under the same terms as Perl itself.

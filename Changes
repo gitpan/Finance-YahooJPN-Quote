@@ -1,5 +1,8 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+0.13  2004-11-13 22:56:00 JST
+	- bug-fix: fixed for Yahoo Finance's html code modification.
+
 0.12  2003-10-05 21:01:03 JST
 	- bug-fix: fixed problem in case splits are continous with
 	  each other.

@@ -1,0 +1,6 @@
+Changes			for the revision history
+Quote.pm		fetch a quote of Japanese stock market
+Makefile.PL		writes the Makefile
+MANIFEST		(this file)
+README			for the short descriptions about install
+t/Quote.t		test script for the Finance::YahooJPN::Quote

@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = '0.11'; # 2003-10-04 (since 2001-05-30)
+our $VERSION = '0.12'; # 2003-10-05 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
@@ -99,7 +99,7 @@ According to the Yahoo-Japan-Finance's description L<http://help.yahoo.co.jp/hel
  .q: JASDAQ
  .j: Nippon New Market (Hercules)
 
-Letter extention is omittable. When it was omit, the default exchange market is chosen by Yahoo-Japan-Finance's server. It is not certain but I guess that a default one should be the main exchange market of a stock.
+Letter extention is omittable. When it was omit, the default exchange market is chosen by Yahoo-Japan-Finance's server. It is not certain but I guess that a default one should be the main exchange market of a stock. Note: since almost symbols should work without letter extention, I have experienced certain problems with a few symbols those which have originally `.j' letter extention. This is of course not for the module but owe to the Yahoo-Japan-Finance server's behavior.
 
 =cut
 
@@ -276,15 +276,20 @@ sub _pickup {
 sub _pickup_split {
 	my($self, $row) = @_;
 	
-	$row =~ m|^.+?<td align=right>(\d{4})年(\d{1,2})月(\d{1,2})日</td><td colspan=6 align=center>分割: (.+?)株 -> (.+?)株</td></tr><tr$|;
+	# in case split rows are continuous with each other.
+	my @string = split m|</td></tr><tr>|, $row;
 	
-	my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
-	
-	my($split_pre, $split_post) = ($4, $5);
-	
-	# store the split data as a package variable
-	$row = join "\t", $date, $split_pre, $split_post;
-	push @{ $self->{'splits'} }, $row;
+	foreach my $string (@string) {
+		$string =~ m|^.*?<td align=right>(\d{4})年(\d{1,2})月(\d{1,2})日</td><td colspan=6 align=center>分割: (.+?)株 -> (.+?)株.*?$|;
+		
+		my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
+		
+		my($split_pre, $split_post) = ($4, $5);
+		
+		# store the split data as a package variable
+		$string = join "\t", $date, $split_pre, $split_post;
+		push @{ $self->{'splits'} }, $string;
+	}
 	
 	return $self;
 }
@@ -372,7 +377,7 @@ The mudule calculates adjusted values originally including closing prices. The o
 
 =head1 AUTHOR
 
-Masanori HATA E<lt>lovewing@geocities.co.jpE<gt> (Saitama, JAPAN)
+Masanori HATA E<lt>lovewing@dream.big.or.jpE<gt> (Saitama, JAPAN)
 
 =head1 COPYRIGHT
 

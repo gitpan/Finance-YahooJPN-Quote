@@ -6,6 +6,6 @@ WriteMakefile(
 	'VERSION_FROM' => 'Quote.pm',
 	($] >= 5.005 ? (
 		'ABSTRACT' => 'fetch a quote of Japanese stock market',
-		'AUTHOR'   => 'Masanori HATA <lovewing@geocities.co.jp>',
+		'AUTHOR'   => 'Masanori HATA <lovewing@dream.big.or.jp>',
 	) : ()),
 );

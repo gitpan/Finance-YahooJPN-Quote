@@ -1,5 +1,11 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+0.12  2003-10-05 21:01:03 JST
+	- bug-fix: fixed problem in case splits are continous with
+	  each other.
+	- update POD: the fact omitting letter extention of a symbol
+	  will cause a bit problematic.
+
 0.11  2003-10-04 14:44:06 JST
 	- use IO::Socket instead of LWP::Simple for www connection
 	  to expect faster and lighter performance.

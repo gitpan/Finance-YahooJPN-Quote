@@ -1,5 +1,8 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+0.09  2003-10-03 00:00:55 JST
+	- new(): letter extention of an exchange market is now omittable.
+
 0.08  2003-09-30 17:10:28 JST
 	- change module name: F*::Y*JPN::QuoteHist -> F*::Y*JPN::Quote
 	- change method name: quote() -> historical()

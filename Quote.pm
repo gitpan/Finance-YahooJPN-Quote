@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = '0.08'; # 2003-09-30 (since 2001-05-30)
+our $VERSION = '0.09'; # 2003-10-03 (since 2001-05-30)
 
 use Carp;
 use LWP::Simple;
@@ -27,7 +27,18 @@ Finance::YahooJPN::Quote - fetch a quote of Japanese stock market
 
 =head1 DESCRIPTION
 
-Historical quote data is basis for analyzing stock market. In Japan, standard quote data is indicated as a set of data: four prices (open, high, low, close) and volume of each day. This module provides user a list of historical quote of a company.
+Historical quote data is basis for analyzing stock market. In Japan, standard quote data is indicated as a set of data: four prices (open, high, low, close) and volume of each day. This module provides module user some functions to get historical quote of a company.
+
+=cut
+
+# initialize package global values
+my $Japan_Standard_Time = time + (9 * 3600);
+my $Today = join '-', (
+	                ( gmtime($Japan_Standard_Time) )[5] + 1900 ,
+	sprintf('%02d', ( gmtime($Japan_Standard_Time) )[4] + 1   ),
+	sprintf('%02d', ( gmtime($Japan_Standard_Time) )[3]       ),
+);
+undef $Japan_Standard_Time;
 
 =head1 METHODS
 
@@ -72,11 +83,11 @@ sub historical {
 
 =item new($symbol)
 
-Constructor class method. A stock C<$symbol> should be given with 4-digit code number followed by letter extension (dot `.' and an alphabet). (ex. `6758.t' )
+Constructor class method. A stock C<$symbol> should be given with 4-digit code number and optionaly followed by a letter extension (dot `.' and an alphabet). (i.e. `6758' or `6758.t')
 
-Japanese stock markets use 4-digit code number as stock symbol. Plus, add a alphabetical letter extention to indicate the exchange market. For example, the stock symbol code of Sony Corp. is '6758' and the letter extention of the Tokyo Stock Exchange is '.t'. Hence, the stock quote of the Sony Corp. at Tokyo Stock Exchange is specified as '6758.t'.
+Japanese stock markets use 4-digit code number as stock symbol. Plus, add an alphabetical letter extention to indicate its exchange market. For example, the stock symbol code of Sony Corp. is '6758' and the letter extention of the Tokyo Stock Exchange is '.t'. Hence, the stock quote of the Sony Corp. at Tokyo Stock Exchange is specified as '6758.t'.
 
-According to the Yahoo Japan Finance's description L<http://help.yahoo.co.jp/help/jp/fin/quote/stock/quote_02.html> the letter extentions of each exchange market are:
+According to the Yahoo-Japan-Finance's description L<http://help.yahoo.co.jp/help/jp/fin/quote/stock/quote_02.html> the letter extentions of each exchange market are:
 
  .t: Tokyo   Stock Exchange
  .o: Osaka   Stock Exchange
@@ -86,6 +97,8 @@ According to the Yahoo Japan Finance's description L<http://help.yahoo.co.jp/hel
  .q: JASDAQ
  .j: Nippon New Market (Hercules)
 
+Letter extention is omittable. When it was omit, the default exchange market is chosen by Yahoo-Japan-Finance's server. It is not certain but I guess that a default one should be the main exchange market of a stock.
+
 =cut
 
 sub new {
@@ -94,13 +107,13 @@ sub new {
 	bless $self, $class;
 	
 	unless ($symbol) {
-		croak "The 'symbol' attribute must not be omitted";
+		croak "'symbol' argument isn't omittable";
 	}
-	if ($symbol =~ /^\d{4}\.[a-zA-Z]$/) {
+	if ($symbol =~ /^\d{4}(\.[a-zA-Z]){0,1}$/) {
 		$self->{'symbol'} = $symbol;
 	}
 	else {
-		croak "A stock symbol should be given with four numbers followed by market extension (dot `.' and one alphabet). (ex. `6758.t' )";	}
+		croak "A stock symbol should be given with four numbers and optionaly followed by a letter extension (dot `.' and an alphabet). (i.e. `6758' or `6758.t' )";	}
 	
 	return $self;
 }
@@ -119,13 +132,7 @@ sub fetch {
 	my($self, %term) = @_;
 	
 	$self->{'start'} = '1980-01-01';
-	my $now = time + 9 * 3600; # This is JST (Japan Standard Time)
-	$self->{'last' } =
-		join '-', (
-			(gmtime($now))[5] + 1900,
-			sprintf('%02d', (gmtime($now))[4] + 1),
-			sprintf('%02d', (gmtime($now))[3]    )
-		);
+	$self->{'last' } = $Today;
 	
 	foreach my $key (keys %term) {
 		my $lowercase = $key;
@@ -173,7 +180,7 @@ sub fetch {
 
 =item extract(['noadjust' => 1])
 
-This object method extracts the stock's historical quote data from the fetched pages of Yahoo-Japan-Finance.
+This object method extracts the stock's historical quote data from fetched pages of Yahoo-Japan-Finance.
 
 The C<noadjust> option can turn on/off the function of value adjustment for the splits. If you omit this option or set this value '0', adjustment function is effective (default). If you set this value other than '0', adjustment function is ineffective.
 

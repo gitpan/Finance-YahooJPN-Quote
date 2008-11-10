@@ -1,10 +1,21 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Finance-YahooJPN-Quote
-version:      0.13
-version_from: Quote.pm
-installdirs:  site
+---
+name: Finance-YahooJPN-Quote
+version: 0.14
+author:
+  - "Masanori HATA <http://www.mihr.net> (Saitama, JAPAN)"
+abstract: to get a quote in Japanese stock market
+license: perl
 requires:
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.17
+  perl: 5.8.0
+recommends:
+  perl: 5.10.0
+generated_by: Module::Build version 0.280801
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2
+provides:
+  Finance::YahooJPN::Quote:
+    file: Quote.pm
+    version: 0.14
+resources:
+  license: http://dev.perl.org/licenses/

@@ -5,7 +5,7 @@ WriteMakefile(
 	'NAME'         => 'Finance::YahooJPN::Quote',
 	'VERSION_FROM' => 'Quote.pm',
 	($] >= 5.005 ? (
-		'ABSTRACT' => 'fetch a quote of Japanese stock market',
-		'AUTHOR'   => 'Masanori HATA <lovewing@dream.big.or.jp>',
+		'ABSTRACT' => 'to get a quote in Japanese stock market',
+		'AUTHOR'   => 'Masanori HATA <http://www.mihr.net/>',
 	) : ()),
 );

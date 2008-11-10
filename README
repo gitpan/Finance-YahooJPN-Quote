@@ -1,30 +1,108 @@
-Finance::YahooJPN::Quote version 0.13
-=====================================
+NAME
+    Finance::YahooJPN::Quote - to get a quote in Japanese stock market
 
- This module provides you functions to fetch a quote of 
- Japanese stock market from Yahoo-Japan-Finance.
+SYNOPSIS
+      use Finance::YahooJPN::Quote;
+      
+  # get the quote of Sony Corp. at Tokyo market.
+      my @quote = Finance::YahooJPN::Quote->histrical('6758.t');
+      
+  print join("\n", @quote);
 
-INSTALLATION
+DESCRIPTION
+    Historical quote data is basis for analyzing stock market. Here in
+    Japan, standard quote data is indicated as a set of data: the four
+    prices (open, high, low, close) and the volume of each day. This module
+    provides module user some functions to get historical quote of a
+    company.
 
- To install this module type the following:
+METHODS
+    historical($symbol [, 'start' => $start] [, 'noadjust' => 1])
+        This class method automatically "new()" and "scan()" then "output()"
+        a historical series of quote of the stock which specified with
+        $symbol argument.
 
-   perl Makefile.PL
-   make
-   make test
-   make install
+        See the descriptions about the following methods for the argument
+        and attributes: $symbol, "start" and "noadjust".
 
- This module and the test script requires internet connection.
- And the test script will take several minutes to progress.
- And sometime the test may fail if the network connection is
- unstable.
+    new($symbol)
+        Constructor class method. A stock $symbol should be given with
+        4-digit code number and optionaly followed by a letter extension
+        (dot `.' and an alphabet). (i.e. `6758' or `6758.t')
 
-DEPENDENCIES
+        Japanese stock market use 4-digit code number as a stock symbol.
+        Plus, add an alphabetical letter extention to indicate its exchange
+        market. For example, the stock symbol code of Sony Corp. is '6758'
+        and the letter extention of Tokyo Stock Exchange is '.t'. Hence, the
+        stock quote of Sony Corp. at Tokyo Stock Exchange is specified as
+        '6758.t'.
 
- This module requires perl 5.8 or later.
+        According to the Yahoo-Japan-Finance's description
+        <http://help.yahoo.co.jp/help/jp/fin/quote/stock/quote_02.html> the
+        letter extentions of each exchange market are:
 
-COPYRIGHT AND LICENCE
+         .t: Tokyo   Stock Exchange
+         .o: Osaka   Stock Exchange
+         .n: Nagoya  Stock Exchange
+         .s: Sapporo Stock Exchange
+         .f: Fukuoka Stock Exchange
+         .q: JASDAQ
+         .j: Nippon New Market (Hercules)
 
- Copyright (c) 2001-2004 Masanori HATA. All rights reserved.
+        Letter extention is omittable. When it was omit, the default
+        exchange market is chosen by Yahoo-Japan-Finance's server. It is not
+        certain but I guess that a default one should be the main exchange
+        market of a stock. Note: since almost symbols should work without
+        letter extention, I have experienced certain problems with a few
+        symbols those which have originally `.j' letter extention. This is
+        of course not for the module but owe to the Yahoo-Japan-Finance
+        server's behavior.
 
- This program is free software; you can redistribute it and/or
- modify it under the same terms as Perl itself.
+    scan(['start' => $start])
+        This object method scans the stock's historical quote pages of
+        Yahoo-Japan-Finance from the $start date to the current date. And
+        picks up quote data of each day from that pages.
+
+        A $start date should be given in the format `YYYY-MM-DD' (ex.
+        `2003-08-14'). Be careful, don't forget to quote the word, because
+        bare word 2000-01-01 will be comprehend by Perl as '2000 - 1 - 1 =
+        1998'. This attribute is omittable. The default value of $start is
+        '1980-01-01'.
+
+        You cannot specify the last date. Because, to find the splits you
+        must scan all of the quote from the start date. Without the splits
+        data, estimation of adjustment for the splits cannot be done
+        exactly.
+
+        Note that a datetime for this module is based on JST (Japan Standard
+        Time: GMT +09:00).
+
+    output(['noadjust' => 1])
+        This object method returns the collected quote data as a list.
+
+        The "noadjust" option can turn on/off the function of value
+        adjustment for the splits. If you omit this option or set this value
+        '0', adjustment function is effective (default). If you set this
+        value other than '0', adjustment function is ineffective.
+
+        The data is formatted as TSV (Tab Separated Values). Each row
+        represents quote of each day in the order with 1)date, 2)open,
+        3)high, 4)low, 5)close and 6)volume.
+
+NOTES
+    This mudule calculates adjusted values, including closing prices, by
+    itself. Though Yahoo-Japan-Finance doesn't give only four prices but
+    also adjusted closing prices, those values are not rounded but cut for
+    decimal fractions (not good). For this reason, I have decided to ignore
+    Yahoo-Japan-Finance's adjusted closing prices. That is why some adjusted
+    closing prices are different from Yahoo-Japan-Finance's.
+
+AUTHOR
+    Masanori HATA <http://www.mihr.net/> (Saitama, JAPAN)
+
+COPYRIGHT
+    Copyright ©2001-2008 Masanori HATA. All rights reserved.
+
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+

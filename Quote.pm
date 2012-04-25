@@ -1,11 +1,10 @@
 package Finance::YahooJPN::Quote;
 
-use 5.008;
-use strict;
+use 5.014;
 use warnings;
 use utf8;
 
-our $VERSION = '0.14'; # 2008-11-11 (since 2001-05-30)
+our $VERSION = '1.00'; # 2012-04-26 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
@@ -13,24 +12,24 @@ use Encode;
 
 =head1 NAME
 
-Finance::YahooJPN::Quote - to get a quote in Japanese stock market
+Finance::YahooJPN::Quote -- For fetching histrical stock quotes in Japan from Yahoo! Japan Finance.
 
 =head1 SYNOPSIS
 
   use Finance::YahooJPN::Quote;
   
-  # get the quote of Sony Corp. at Tokyo market.
+  # Get quote of Sony Corp. at the Tokyo market.
   my @quote = Finance::YahooJPN::Quote->histrical('6758.t');
   
   print join("\n", @quote);
 
 =head1 DESCRIPTION
 
-Historical quote data is basis for analyzing stock market. Here in Japan, standard quote data is indicated as a set of data: the four prices (open, high, low, close) and the volume of each day. This module provides module user some functions to get historical quote of a company.
+Historical quote data is basis for analyzing stock market. Here in Japan, standard quote data is indicated as a set of data: the four prices (open, high, low, close) and the volume of each day. This module provides its user some functions to get historical quote of a company.
 
 =cut
 
-# initialize package global values
+# initialize global variables of this package
 my $Japan_Standard_Time = time + 32400; # 9h * 60m * 60s = 32400s
 my $Today = join '-', (
                     ( gmtime($Japan_Standard_Time) )[5] + 1900 ,
@@ -56,11 +55,10 @@ See the descriptions about the following methods for the argument and attributes
 =cut
 
 sub debug {
-    my($class, $level) = @_;
+    my($class, $level, $symbol) = @_;
     if ($level !~ m/^[1-5]$/) {
-        croak 'You must specify debug level [1-4]';
+        croak 'You must specify debug level [1-5]';
     }
-    my $symbol = '6758.t'; # use Sony Corp. for debugging
     my $start = '2000-01-01';
     my $last  = '2000-04-01';
     $Debug = $level;
@@ -103,19 +101,20 @@ sub historical {
 
 Constructor class method. A stock C<$symbol> should be given with 4-digit code number and optionaly followed by a letter extension (dot `.' and an alphabet). (i.e. `6758' or `6758.t')
 
-Japanese stock market use 4-digit code number as a stock symbol. Plus, add an alphabetical letter extention to indicate its exchange market. For example, the stock symbol code of Sony Corp. is '6758' and the letter extention of Tokyo Stock Exchange is '.t'. Hence, the stock quote of Sony Corp. at Tokyo Stock Exchange is specified as '6758.t'.
+Japanese stock markets use 4-digit code numbers for stock symbols. In addtion to that, an alphabetical letter extention is used for indicating its exchanging place. For example, the stock symbol code of Sony Corp. is '6758' and the letter extention of the Tokyo Stock Exchange is '.t'. Hence, the stock quote of Sony Corp. at Tokyo Stock Exchange is specified as '6758.t'.
 
-According to the Yahoo-Japan-Finance's description L<http://help.yahoo.co.jp/help/jp/fin/quote/stock/quote_02.html> the letter extentions of each exchange market are:
+According to the Yahoo-Japan-Finance's description L<http://help.yahoo.co.jp/help/jp/finance/quote/quote-02.html> the letter extentions of exchanging place are:
 
  .t: Tokyo   Stock Exchange
  .o: Osaka   Stock Exchange
+ .q: JASDAQ
  .n: Nagoya  Stock Exchange
  .s: Sapporo Stock Exchange
  .f: Fukuoka Stock Exchange
- .q: JASDAQ
- .j: Nippon New Market (Hercules)
 
-Letter extention is omittable. When it was omit, the default exchange market is chosen by Yahoo-Japan-Finance's server. It is not certain but I guess that a default one should be the main exchange market of a stock. Note: since almost symbols should work without letter extention, I have experienced certain problems with a few symbols those which have originally `.j' letter extention. This is of course not for the module but owe to the Yahoo-Japan-Finance server's behavior.
+Letter extention is omittable. When it is omit, the default exchange market is chosen by the Yahoo-Japan-Finance's server. It is not certain but I guess that the default one should be the main exchange market of the stock. Note: since almost symbols should work without letter extention, I have experienced certain problems with a few symbols those which have originally `.j' letter extention. This is of course not for the module but owe to the Yahoo-Japan-Finance server's behavior.
+
+There is exception for above. A few symbols of index are indicated in 5 to 7 digit code numbers. They are '998405' (TOPIX), '998407' (NIKKEI) and '23337' (JASDAQ). L<http://help.yahoo.co.jp/help/jp/finance/quote/quote-03.html>
 
 =cut
 
@@ -125,26 +124,31 @@ sub new {
     bless $self, $class;
     
     unless ($symbol) {
-        croak "'symbol' argument isn't omittable";
+        croak "'symbol' argument can't be omittable";
     }
-    if ($symbol =~ /^\d{4}(\.[a-zA-Z]){0,1}$/) {
+    if (
+           $symbol eq '998405'
+        or $symbol eq '998407'
+        or $symbol eq '23337'
+        or $symbol =~ /^\d{4}(\.[a-zA-Z]){0,1}$/
+       ) {
         $self->{'symbol'} = $symbol;
     }
     else {
-        croak "A stock symbol should be given with four numbers and optionaly followed by a letter extension (dot `.' and an alphabet). (i.e. `6758' or `6758.t' )";	}
+        croak "Stock symbol must be given in a 4-digit number and optionally which can be\nfollowed by a letter extension (a dot `.' and an alphabet).\n\tFor example: `6758' or `6758.t'\nExcept for these special index codes: 998405, 998407 and 23337.\n\n";	}
     
     return $self;
 }
 
 =item scan(['start' => $start])
 
-This object method scans the stock's historical quote pages of Yahoo-Japan-Finance from the C<$start> date to the current date. And picks up quote data of each day from that pages.
+This object method is for scanning the stock's historical quote pages of Yahoo-Japan-Finance from the C<$start> date to the current date. And for picking up quote data of each day on those pages.
 
-A C<$start> date should be given in the format `YYYY-MM-DD' (ex. `2003-08-14'). Be careful, don't forget to quote the word, because bare word 2000-01-01 will be comprehend by Perl as '2000 - 1 - 1 = 1998'. This attribute is omittable. The default value of C<$start> is '1980-01-01'.
+Date of C<$start> must be given in the format `YYYY-MM-DD' (ex. `2003-08-14'). Be careful, don't forget to quote the word, because bare word 2000-01-01 will be comprehend by Perl as '2000 - 1 - 1 = 1998'. This attribute is omittable. The default value of C<$start> is '1980-01-01'.
 
-You cannot specify the last date. Because, to find the splits you must scan all of the quote from the start date. Without the splits data, estimation of adjustment for the splits cannot be done exactly.
+You cannot specify a date of last day. Because, to find the splits you must scan the quote during whole of the period from the C<$start> day. Without split data, estimation of value adjustment for split cannot be done exactly.
 
-Note that a datetime for this module is based on JST (Japan Standard Time: GMT +09:00).
+Note that datetime of this module is based on JST (Japan Standard Time: GMT +09:00).
 
 =cut
 
@@ -177,7 +181,7 @@ sub scan {
         my $abs_path = "/t?a=$month_a&b=$day_a&c=$year_a&d=$month_z&e=$day_z&f=$year_z&g=d&s=$self->{'symbol'}&y=$y";
         my $remotedoc = decode( 'euc-jp', $self->_fetch($abs_path) );
         
-        # debug level 1 (it should output raw html)
+        # debug level 1 (it should output a raw html)
         if ($Debug == 1) {
             print $remotedoc;
             exit;
@@ -191,8 +195,8 @@ sub scan {
         if ($remotedoc =~ m/この検索期間の価格データはありません。/) {
             last;
         }
-        # testing whether it is the final page (with bulk rows) or not
-        unless ($remotedoc =~ m|<th><small>調整後終値\*</small></th>|) {
+        # testing whether it is the overrun page (without quote table) or not
+        unless ($remotedoc =~ m|<th><small>日付</small></th>\n<th><small>始値</small></th>\n<th><small>高値</small></th>\n<th><small>安値</small></th>\n<th><small>終値</small></th>|) {
             last;
         }
         
@@ -203,7 +207,7 @@ sub scan {
 }
 
 # _fetch($url)
-# This private method fetches a web page.
+# This private method is for fetching a web page.
 sub _fetch {
     my($self, $abs_path) = @_;
     
@@ -230,84 +234,137 @@ EOF
 }
 
 # _collect($html)
-# This private object method collects a stock's historical quote
-# of a C<$html> page fetched from Yahoo-Japan-Finance.
+# This private object method is for collecting historical quote of stock
+# on the C<$html> which was fetched from Yahoo-Japan-Finance.
 sub _collect {
     my($self, $html) = @_;
     
-    # split the page to lines
+    # split the page to some lines
     my @html = split /\n/, $html;
     
-    # discard useless lines before the quote rows.
+    # discard useless lines before quote rows.
     while (@html) {
         my $line = shift @html;
+        if (   $self->{'symbol'} eq '998405'
+            or $self->{'symbol'} eq '998407'
+            or $self->{'symbol'} eq '23337'
+        ) {
+            if ($line =~ m|^<th><small>終値</small></th>|) {
+                shift @html;
+                last;
+            }
+        }
         if ($line =~ m|^<th><small>調整後終値\*</small></th>|) {
             shift @html;
             last;
         }
     }
     
-    # debug level 2 (it should output html which has been cut the header part)
+    # debug level 2 (it should output an html which has been cut the header part)
     if ($Debug == 2) {
         print encode('utf8', join("\n", @html));
         exit;
     }
     
-    while ($html[0] eq '</tr><tr align=right bgcolor="#ffffff">'
-           or $html[0] eq '<tr align=right bgcolor="#ffffff">'
-           or $html[0] eq '</tr><tr bgcolor="#ffffff">'
-           or $html[0] eq '<tr bgcolor="#ffffff">') {
-        if ($html[0] eq '</tr><tr bgcolor="#ffffff">'
-            or $html[0] eq '<tr bgcolor="#ffffff">') {
-            # this is a split data
+    if (   $self->{'symbol'} eq '998405'
+        or $self->{'symbol'} eq '998407'
+        or $self->{'symbol'} eq '23337'
+    ) {
+        while ($html[0] eq '</tr><tr align=right bgcolor="#ffffff">'
+            or $html[0] eq '<tr align=right bgcolor="#ffffff">'
+            or $html[0] eq '</tr><tr bgcolor="#ffffff">'
+            or $html[0] eq '<tr bgcolor="#ffffff">'
+        ) {
             shift @html;
-            $html[0] =~ m/(\d{4})年(\d{1,2})月(\d{1,2})日/;
+            
+            $html[0] =~ m|<td><small>(\d{4})年(\d{1,2})月(\d{1,2})日</small></td>|;
             my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
             shift @html;
-            $html[0] =~ m/分割: (.+?)株 -> (.+?)株/;
-            my($split_pre, $split_post) = ($1, $2);
+            
+            $html[0] =~ m|<td><small>(.+?)</small></td>|;
+            my $open = $1;
             shift @html;
             
-            # store this split data as a package variable
-            push @{ $self->{'splits'} }, join("\t", $date, $split_pre, $split_post);
+            $html[0] =~ m|<td><small>(.+?)</small></td>|;
+            my $high = $1;
+            shift @html;
             
-            next;
+            $html[0] =~ m|<td><small>(.+?)</small></td>|;
+            my $low = $1;
+            shift @html;
+            
+            $html[0] =~ m|<small><b>(.+?)</b></small></td>|;
+            my $close = $1;
+            shift @html;
+            
+            foreach my $num ($open, $high, $low, $close) {
+                $num =~ tr/,//d;
+            }
+            
+            # store the quote data as a package variable
+            unshift @{ $self->{'q_noadjust'} }, join("\t", $date, $open, $high, $low, $close);
         }
-        shift @html;
-        
-        $html[0] =~ m|<td><small>(\d{4})年(\d{1,2})月(\d{1,2})日</small></td>|;
-        my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
-        shift @html;
-        
-        $html[0] =~ m|<td><small>(.+?)</small></td>|;
-        my $open = $1;
-        shift @html;
-        
-        $html[0] =~ m|<td><small>(.+?)</small></td>|;
-        my $high = $1;
-        shift @html;
-        
-        $html[0] =~ m|<td><small>(.+?)</small></td>|;
-        my $low = $1;
-        shift @html;
-        
-        $html[0] =~ m|<small><b>(.+?)</b></small></td>|;
-        my $close = $1;
-        shift @html;
-        
-        $html[0] =~ m|<td><small>(.+?)</small></td>|;
-        my $volume = $1;
-        shift @html;
-        
-        foreach my $num ($open, $high, $low, $close, $volume) {
-            $num =~ tr/,//d;
+    }
+    else {
+        while ($html[0] eq '</tr><tr align=right bgcolor="#ffffff">'
+            or $html[0] eq '<tr align=right bgcolor="#ffffff">'
+            or $html[0] eq '</tr><tr bgcolor="#ffffff">'
+            or $html[0] eq '<tr bgcolor="#ffffff">'
+        ) {
+            if (   $html[0] eq '</tr><tr bgcolor="#ffffff">'
+                or $html[0] eq '<tr bgcolor="#ffffff">'
+            ) {
+                # this is a split data
+                shift @html;
+                $html[0] =~ m/(\d{4})年(\d{1,2})月(\d{1,2})日/;
+                my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
+                shift @html;
+                $html[0] =~ m/分割: (.+?)株 -> (.+?)株/;
+                my($split_pre, $split_post) = ($1, $2);
+                shift @html;
+                
+                # store this split data as a package variable
+                push @{ $self->{'splits'} }, join("\t", $date, $split_pre, $split_post);
+                
+                next;
+            }
+            
+            shift @html;
+            
+            $html[0] =~ m|<td><small>(\d{4})年(\d{1,2})月(\d{1,2})日</small></td>|;
+            my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
+            shift @html;
+            
+            $html[0] =~ m|<td><small>(.+?)</small></td>|;
+            my $open = $1;
+            shift @html;
+            
+            $html[0] =~ m|<td><small>(.+?)</small></td>|;
+            my $high = $1;
+            shift @html;
+            
+            $html[0] =~ m|<td><small>(.+?)</small></td>|;
+            my $low = $1;
+            shift @html;
+            
+            $html[0] =~ m|<small><b>(.+?)</b></small></td>|;
+            my $close = $1;
+            shift @html;
+            
+            $html[0] =~ m|<td><small>(.+?)</small></td>|;
+            my $volume = $1;
+            shift @html;
+            
+            foreach my $num ($open, $high, $low, $close, $volume) {
+                $num =~ tr/,//d;
+            }
+            
+            # discard the ajusted closing price
+            shift @html;
+            
+            # store the quote data as a package variable
+            unshift @{ $self->{'q_noadjust'} }, join("\t", $date, $open, $high, $low, $close, $volume);
         }
-        
-        # discard the ajusted closing price
-        shift @html;
-        
-        # store the quote data as a package variable
-        unshift @{ $self->{'q_noadjust'} }, join("\t", $date, $open, $high, $low, $close, $volume);
     }
     
     # debug level 3 (it should output the rest (footer) of html)
@@ -322,7 +379,7 @@ sub _collect {
 }
 
 # _adjustment()
-# This private object method calculates a stock's historical quote
+# This private object method is for calculating the stock's historical quote
 # data which is adjusted for splits.
 sub _adjustment {
     my $self = shift;
@@ -362,11 +419,11 @@ sub _adjustment {
 
 =item output(['noadjust' => 1])
 
-This object method returns the collected quote data as a list.
+This object method is for returning the collected quote data in a list.
 
-The C<noadjust> option can turn on/off the function of value adjustment for the splits. If you omit this option or set this value '0', adjustment function is effective (default). If you set this value other than '0', adjustment function is ineffective.
+By C<noadjust> option you can turn on/off the function of value adjustment for splits. If you omit this option or set this value '0', adjustment function is effective (by default). If you set this value other than '0', adjustment function is ineffective.
 
-The data is formatted as TSV (Tab Separated Values). Each row represents quote of each day in the order with 1)date, 2)open, 3)high, 4)low, 5)close and 6)volume.
+Output data is formatted in TSV (Tab Separated Values). Each row represents quote of each day in the order with 1)date, 2)open, 3)high, 4)low, 5)close and 6)volume.
 
 =back
 
@@ -400,7 +457,7 @@ __END__
 
 =head1 NOTES
 
-This mudule calculates adjusted values, including closing prices, by itself. Though Yahoo-Japan-Finance doesn't give only four prices but also adjusted closing prices, those values are not rounded but cut for decimal fractions (not good). For this reason, I have decided to ignore Yahoo-Japan-Finance's adjusted closing prices. That is why some adjusted closing prices are different from Yahoo-Japan-Finance's.
+This mudule calculates adjusted values (including closing prices) by itself. Though Yahoo-Japan-Finance doesn't give only four prices but also adjusted closing prices, those values are not rounded but cut for decimal fractions (not good). For this reason, I have decided to ignore Yahoo-Japan-Finance's pre-adjusted closing prices. That is why some adjusted closing prices are different from Yahoo-Japan-Finance's.
 
 =head1 AUTHOR
 
@@ -408,7 +465,7 @@ Masanori HATA L<http://www.mihr.net/> (Saitama, JAPAN)
 
 =head1 COPYRIGHT
 
-Copyright ©2001-2008 Masanori HATA. All rights reserved.
+Copyright © 2001-2012 Masanori HATA. All rights reserved.
 
 This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 

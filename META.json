@@ -1,0 +1,44 @@
+{
+   "abstract" : "For fetching histrical stock quotes in Japan from Yahoo! Japan Finance.",
+   "author" : [
+      "Masanori HATA <http://www.mihr.net> (Saitama, JAPAN)"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.112150",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Finance-YahooJPN-Quote",
+   "prereqs" : {
+      "configure" : {
+         "requires" : {
+            "Module::Build" : "0.38"
+         }
+      },
+      "runtime" : {
+         "recommends" : {
+            "perl" : "v5.14.2"
+         },
+         "requires" : {
+            "perl" : "v5.14.0"
+         }
+      }
+   },
+   "provides" : {
+      "Finance::YahooJPN::Quote" : {
+         "file" : "Quote.pm",
+         "version" : "1.00"
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "license" : [
+         "http://dev.perl.org/licenses/"
+      ]
+   },
+   "version" : "1.00"
+}

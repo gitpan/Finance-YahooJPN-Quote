@@ -1,8 +1,9 @@
-Changes			for the revision history
-Quote.pm		to fetch a quote in Japanese stock market
-Build.pl		writes the Build
-Makefile.PL		writes the Makefile
+Changes			Revision history
+Quote.pm		For fetching histrical stock quotes in Japan from Yahoo! Japan Finance.
+Build.pl		To generate the Build
+Makefile.PL		To generate the Makefile
 MANIFEST		(this file)
-README			for the short descriptions about install
-t/Quote.t		test script for the Finance::YahooJPN::Quote
+README			Manual information of the module
+t/Quote.t		A test script for the module
 META.yml
+META.json

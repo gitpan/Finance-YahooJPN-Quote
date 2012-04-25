@@ -1,21 +1,25 @@
 ---
-name: Finance-YahooJPN-Quote
-version: 0.14
+abstract: 'For fetching histrical stock quotes in Japan from Yahoo! Japan Finance.'
 author:
-  - "Masanori HATA <http://www.mihr.net> (Saitama, JAPAN)"
-abstract: to get a quote in Japanese stock market
+  - 'Masanori HATA <http://www.mihr.net> (Saitama, JAPAN)'
+build_requires: {}
+configure_requires:
+  Module::Build: 0.38
+dynamic_config: 1
+generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.112150'
 license: perl
-requires:
-  perl: 5.8.0
-recommends:
-  perl: 5.10.0
-generated_by: Module::Build version 0.280801
 meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.2.html
-  version: 1.2
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Finance-YahooJPN-Quote
 provides:
   Finance::YahooJPN::Quote:
     file: Quote.pm
-    version: 0.14
+    version: 1.00
+recommends:
+  perl: v5.14.2
+requires:
+  perl: v5.14.0
 resources:
   license: http://dev.perl.org/licenses/
+version: 1.00

@@ -1,5 +1,11 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+1.00  2012-04-26 04:04:04 JST
+	- reinforcement: the three index codes (TOPIX, Nikkei, JASDAQ)
+          have been able to be fetched.
+        - update: some stock exchange markets were obsolete.
+        - At last the version number becomes 1.00.
+
 0.14  2008-11-11 01:21:00 JST
 	- bug-fix: fixed for Yahoo Finance's html code modification.
 

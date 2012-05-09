@@ -4,7 +4,7 @@ use 5.014;
 use warnings;
 use utf8;
 
-our $VERSION = '1.00'; # 2012-04-26 (since 2001-05-30)
+our $VERSION = '1.01'; # 2012-05-10 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
@@ -12,14 +12,14 @@ use Encode;
 
 =head1 NAME
 
-Finance::YahooJPN::Quote -- For fetching histrical stock quotes in Japan from Yahoo! Japan Finance.
+Finance::YahooJPN::Quote -- For fetching historical stock quotes in Japan from Yahoo! Japan Finance.
 
 =head1 SYNOPSIS
 
   use Finance::YahooJPN::Quote;
   
-  # Get quote of Sony Corp. at the Tokyo market.
-  my @quote = Finance::YahooJPN::Quote->histrical('6758.t');
+  # Get quote of Sony Corp. at the Tokyo stock exchange.
+  my @quote = Finance::YahooJPN::Quote->historical('6758.t');
   
   print join("\n", @quote);
 
@@ -144,7 +144,7 @@ sub new {
 
 This object method is for scanning the stock's historical quote pages of Yahoo-Japan-Finance from the C<$start> date to the current date. And for picking up quote data of each day on those pages.
 
-Date of C<$start> must be given in the format `YYYY-MM-DD' (ex. `2003-08-14'). Be careful, don't forget to quote the word, because bare word 2000-01-01 will be comprehend by Perl as '2000 - 1 - 1 = 1998'. This attribute is omittable. The default value of C<$start> is '1980-01-01'.
+Date of C<$start> must be given in the format `YYYY-MM-DD' (ex. `2003-08-14'). Be careful, don't forget to quote the word, because bare word 2000-01-01 will be comprehend by Perl as '2000 - 1 - 1 = 1998'. This attribute is omittable. The default value of C<$start> is '1990-01-01'.
 
 You cannot specify a date of last day. Because, to find the splits you must scan the quote during whole of the period from the C<$start> day. Without split data, estimation of value adjustment for split cannot be done exactly.
 
@@ -155,7 +155,7 @@ Note that datetime of this module is based on JST (Japan Standard Time: GMT +09:
 sub scan {
     my($self, %term) = @_;
     
-    $self->{'start'} = '1980-01-01';
+    $self->{'start'} = '1990-01-01';
     $self->{'last' } = $Today;
     
     foreach my $key (keys %term) {
@@ -220,6 +220,7 @@ sub _fetch {
     print $sock <<"EOF";
 GET $abs_path HTTP/1.1
 Host: $Server
+Connection: close
 
 EOF
     

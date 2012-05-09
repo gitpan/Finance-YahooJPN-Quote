@@ -1,12 +1,12 @@
 NAME
-    Finance::YahooJPN::Quote -- For fetching histrical stock quotes in Japan
-    from Yahoo! Japan Finance.
+    Finance::YahooJPN::Quote -- For fetching historical stock quotes in
+    Japan from Yahoo! Japan Finance.
 
 SYNOPSIS
       use Finance::YahooJPN::Quote;
   
-      # Get quote of Sony Corp. at the Tokyo market.
-      my @quote = Finance::YahooJPN::Quote->histrical('6758.t');
+      # Get quote of Sony Corp. at the Tokyo stock exchange.
+      my @quote = Finance::YahooJPN::Quote->historical('6758.t');
   
       print join("\n", @quote);
 
@@ -71,7 +71,7 @@ METHODS
         `2003-08-14'). Be careful, don't forget to quote the word, because
         bare word 2000-01-01 will be comprehend by Perl as '2000 - 1 - 1 =
         1998'. This attribute is omittable. The default value of $start is
-        '1980-01-01'.
+        '1990-01-01'.
 
         You cannot specify a date of last day. Because, to find the splits
         you must scan the quote during whole of the period from the $start

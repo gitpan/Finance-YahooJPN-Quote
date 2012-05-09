@@ -1,5 +1,8 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+1.01  2012-05-10 02:13:00 JST
+	- added 'Connection: close' to HTTP header.
+
 1.00  2012-04-26 04:04:04 JST
 	- reinforcement: the three index codes (TOPIX, Nikkei, JASDAQ)
           have been able to be fetched.

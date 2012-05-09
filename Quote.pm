@@ -4,7 +4,7 @@ use 5.014;
 use warnings;
 use utf8;
 
-our $VERSION = '1.01'; # 2012-05-10 (since 2001-05-30)
+our $VERSION = '1.02'; # 2012-05-10 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
@@ -55,12 +55,10 @@ See the descriptions about the following methods for the argument and attributes
 =cut
 
 sub debug {
-    my($class, $level, $symbol) = @_;
+    my($class, $level, $symbol, $start, $last) = @_;
     if ($level !~ m/^[1-5]$/) {
         croak 'You must specify debug level [1-5]';
     }
-    my $start = '2000-01-01';
-    my $last  = '2000-04-01';
     $Debug = $level;
     
     my $self = $class->new($symbol);
@@ -183,6 +181,7 @@ sub scan {
         
         # debug level 1 (it should output a raw html)
         if ($Debug == 1) {
+            utf8::encode($remotedoc);
             print $remotedoc;
             exit;
         }
@@ -310,9 +309,11 @@ sub _collect {
         while ($html[0] eq '</tr><tr align=right bgcolor="#ffffff">'
             or $html[0] eq '<tr align=right bgcolor="#ffffff">'
             or $html[0] eq '</tr><tr bgcolor="#ffffff">'
+            or $html[0] eq '</tr><tr bgcolor=#ffffff>'
             or $html[0] eq '<tr bgcolor="#ffffff">'
         ) {
             if (   $html[0] eq '</tr><tr bgcolor="#ffffff">'
+                or $html[0] eq '</tr><tr bgcolor=#ffffff>'
                 or $html[0] eq '<tr bgcolor="#ffffff">'
             ) {
                 # this is a split data

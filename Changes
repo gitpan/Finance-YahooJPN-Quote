@@ -1,5 +1,11 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+1.02  2012-05-10 07:12:00 JST
+	- bug-fix: a serious (almost fatal) bug about splitting had
+          been hidden for so many years has been found and fixed
+          at last. Thanks a lot to the Mr. webmaster of Field Isle
+          <http://www.woodnote.org/weblog/>.
+
 1.01  2012-05-10 02:13:00 JST
 	- added 'Connection: close' to HTTP header.
 

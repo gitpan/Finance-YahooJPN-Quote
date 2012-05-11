@@ -1,5 +1,9 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+1.03  2012-05-12 04:17:00 JST
+	- bug-fix: i'm sorry the bug which was found at 1.02 wasn't
+	  completely healed. fixed it again.
+
 1.02  2012-05-10 07:12:00 JST
 	- bug-fix: a serious (almost fatal) bug about splitting had
           been hidden for so many years has been found and fixed

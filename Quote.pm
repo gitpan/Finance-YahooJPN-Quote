@@ -4,7 +4,7 @@ use 5.014;
 use warnings;
 use utf8;
 
-our $VERSION = '1.02'; # 2012-05-10 (since 2001-05-30)
+our $VERSION = '1.03'; # 2012-05-12 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
@@ -173,7 +173,6 @@ sub scan {
     my($year_z, $month_z, $day_z) = split /-/, $self->{'last' };
     
     # multi page fetching
-    my @remotedoc;
     for (my $page = 0; ; $page++) {
         my $y = $page * 50; # 50rows/1page is max at Yahoo-Japan-Finance
         my $abs_path = "/t?a=$month_a&b=$day_a&c=$year_a&d=$month_z&e=$day_z&f=$year_z&g=d&s=$self->{'symbol'}&y=$y";
@@ -311,10 +310,12 @@ sub _collect {
             or $html[0] eq '</tr><tr bgcolor="#ffffff">'
             or $html[0] eq '</tr><tr bgcolor=#ffffff>'
             or $html[0] eq '<tr bgcolor="#ffffff">'
+            or $html[0] eq '<tr bgcolor=#ffffff>'
         ) {
             if (   $html[0] eq '</tr><tr bgcolor="#ffffff">'
                 or $html[0] eq '</tr><tr bgcolor=#ffffff>'
                 or $html[0] eq '<tr bgcolor="#ffffff">'
+                or $html[0] eq '<tr bgcolor=#ffffff>'
             ) {
                 # this is a split data
                 shift @html;

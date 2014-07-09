@@ -15,143 +15,133 @@ BEGIN {
 };
 
 #######################################################
-my $obj1 = Finance::YahooJPN::Quote->new('1378.t');
-isa_ok($obj1, 'Finance::YahooJPN::Quote');
+my $obj = Finance::YahooJPN::Quote->new('1378.t');
+isa_ok($obj, 'Finance::YahooJPN::Quote');
 
 my(@noadjust, @adjust, @TOPIX, @Nikkei, @JASDAQ);
 my $file = 'noadjust';
 while (<DATA>) {
-	my $row = $_;
-	$row =~ s/\x0D\x0A|\x0D|\x0A/\n/;
-	given ($row) {
-		when (/^cut1$/) {
-			$file = 'adjust';
-		}
-		when (/^cut2$/) {
-			$file = 'TOPIX';
-		}
-		when (/^cut3$/) {
-			$file = 'Nikkei';
-		}
-		when (/^cut4$/) {
-			$file = 'JASDAQ';
-		}
-		default {
-			given ($file) {
-				when ('noadjust') {
-					push @noadjust, $row;
-				}
-				when ('adjust') {
-					push @adjust, $row;
-				}
-				when ('TOPIX') {
-					push @TOPIX, $row;
-				}
-				when ('Nikkei') {
-					push @Nikkei, $row;
-				}
-				when ('JASDAQ') {
-					push @JASDAQ, $row;
-				}
-			}
+	chomp(my $row = $_);
+	if ($row eq 'cut1') {
+		$file = 'adjust';
+	} elsif ($row eq 'cut2') {
+		$file = 'TOPIX';
+	} elsif ($row eq 'cut3') {
+		$file = 'Nikkei';
+	} elsif ($row eq 'cut4') {
+		$file = 'JASDAQ';
+	} else {
+		if ($file eq 'noadjust') {
+			push @noadjust, $row;
+		} elsif ($file eq 'adjust') {
+			push @adjust, $row;
+		} elsif ($file eq 'TOPIX') {
+			push @TOPIX, $row;
+		} elsif ($file eq 'Nikkei') {
+			push @Nikkei, $row;
+		} elsif ($file eq 'JASDAQ') {
+			push @JASDAQ, $row;
 		}
 	}
 }
-my $noadjust = join '', @noadjust;
-my $adjust   = join '', @adjust;
-my $TOPIX    = join '', @TOPIX;
-my $Nikkei   = join '', @Nikkei;
-my $JASDAQ   = join '', @JASDAQ;
 
-$obj1->scan('start' => '2000-03-01');
-my @tmp = $obj1->output('noadjust' => 1);
-my @quote;
-for (my $i = 0; $i <= $#tmp; $i++) {
-	push @quote, $tmp[$i], "\n";
-	last if $tmp[$i] =~ /2012-05-09/;
-}
-my $quote = join '', @quote;
+$obj->scan('start' => '2000-03-01', 'last' => '2012-05-09');
+my @quote = $obj->output('noadjust' => 1);
 
-is( $quote, $noadjust,
-	'run scan() method w/o modification for splits' );
+subtest 'ran scan() method w/o modification for splits' => sub {
+	plan tests => $#quote + 1;
+	
+	for (my $i = 0; $i <= $#quote; $i++) {
+		cmp_ok($quote[$i], 'eq', $noadjust[$i], 'daily quote');
+	}
+
+	return 1;
+};
 
 #######################################################
-my $obj2 = Finance::YahooJPN::Quote->new('1378.t');
-$obj2->scan('start' => '2000-03-01');
-@tmp = $obj2->output();
-@quote = ();
-for (my $i = 0; $i <= $#tmp; $i++) {
-	push @quote, $tmp[$i], "\n";
-	last if $tmp[$i] =~ /2012-05-09/;
-}
-$quote = join '', @quote;
+$obj = Finance::YahooJPN::Quote->new('1378.t');
+$obj->scan('start' => '2000-03-01', 'last' => '2012-05-09');
+@quote = $obj->output();
 
-is( $quote, $adjust,
-	'run scan() method w/  modification for splits' );
+subtest 'ran scan() method w/  modification for splits' => sub {
+	plan tests => $#quote + 1;
+	
+	for (my $i = 0; $i <= $#quote; $i++) {
+		cmp_ok($quote[$i], 'eq', $adjust[$i], 'daily quote');
+	}
 
-#######################################################
-@tmp = Finance::YahooJPN::Quote->historical('1378.t', 'Start' => '2000-03-01');
-@quote = ();
-for (my $i = 0; $i <= $#tmp; $i++) {
-	push @quote, $tmp[$i], "\n";
-	last if $tmp[$i] =~ /2012-05-09/;
-}
-$quote = join '', @quote;
-is( $quote, $adjust,
-	'run historical() method (includes new(), scan() and output())' );
+	return 1;
+};
 
 #######################################################
-my $obj3 = Finance::YahooJPN::Quote->new('9437.t');
-$obj3->scan('start' => '2002-03-26', 'last' => '2002-03-26');
-@tmp = $obj3->output();
-$quote = $tmp[0];
+@quote = Finance::YahooJPN::Quote->historical('1378.t', 'Start' => '2000-03-01', 'Last' => '2012-05-09');
+
+subtest 'ran historical() method (includes new(), scan() and output())' => sub {
+	plan tests => $#quote + 1;
+	
+	for (my $i = 0; $i <= $#quote; $i++) {
+		cmp_ok($quote[$i], 'eq', $adjust[$i], 'daily quote');
+	}
+
+	return 1;
+};
+
+#######################################################
+$obj = Finance::YahooJPN::Quote->new('9437.t');
+$obj->scan('start' => '2002-03-26', 'last' => '2002-03-26');
+@quote = $obj->output();
+my $quote = $quote[0];
 my $expected = '2002-03-26	341000	351000	329000	333000	208021';
 
-is( $quote, $expected,
-	'in a rare case split data is at the top row' );
+cmp_ok($quote, 'eq', $expected, 'in a rare case split data is at the top row');
 
 #######################################################
-my $obj4 = Finance::YahooJPN::Quote->new('0000.t');
-$obj4->scan('start' => '2003-09-01', 'last' => '2003-09-30');
-@tmp = $obj4->output();
-$quote = join "\n", @tmp;
+$obj = Finance::YahooJPN::Quote->new('0000.t');
+$obj->scan('start' => '2003-09-01', 'last' => '2003-09-30');
+@quote = $obj->output();
+$quote = join "\n", @quote;
 $expected = '';
 
-is( $quote, $expected,
-	'in a case the specified symbol is absent' );
+cmp_ok($quote, 'eq', $expected, 'in a case the specified symbol is absent');
 
 #######################################################
-@tmp = Finance::YahooJPN::Quote->historical('998405', 'Start' => '2009-01-01');
-@quote = ();
-for (my $i = 0; $i <= $#tmp; $i++) {
-	last if $tmp[$i] =~ /2012-04-25/;
-	push @quote, $tmp[$i], "\n";
-}
-$quote = join '', @quote;
-is( $quote, $TOPIX,
-	'run historical() method for TOPIX' );
+@quote = Finance::YahooJPN::Quote->historical('998405', 'start' => '2009-01-01', 'last' => '2012-04-24');
+
+subtest 'ran historical() method for TOPIX' => sub {
+	plan tests => $#quote + 1;
+	
+	for (my $i = 0; $i <= $#quote; $i++) {
+		cmp_ok($quote[$i], 'eq', $TOPIX[$i], 'daily quote');
+	}
+
+	return 1;
+};
 
 #######################################################
-@tmp = Finance::YahooJPN::Quote->historical('998407', 'Start' => '2009-01-01');
-@quote = ();
-for (my $i = 0; $i <= $#tmp; $i++) {
-	last if $tmp[$i] =~ /2012-04-25/;
-	push @quote, $tmp[$i], "\n";
-}
-$quote = join '', @quote;
-is( $quote, $Nikkei,
-	'run historical() method for Nikkei' );
+@quote = Finance::YahooJPN::Quote->historical('998407', 'start' => '2009-01-01', 'last' => '2012-04-24');
+subtest 'ran historical() method for Nikkei' => sub {
+
+	plan tests => $#quote + 1;
+	
+	for (my $i = 0; $i <= $#quote; $i++) {
+		cmp_ok($quote[$i], 'eq', $Nikkei[$i], 'daily quote');
+	}
+
+	return 1;
+};
 
 #######################################################
-@tmp = Finance::YahooJPN::Quote->historical('23337', 'Start' => '2009-01-01');
-@quote = ();
-for (my $i = 0; $i <= $#tmp; $i++) {
-	last if $tmp[$i] =~ /2012-04-25/;
-	push @quote, $tmp[$i], "\n";
-}
-$quote = join '', @quote;
-is( $quote, $JASDAQ,
-	'run historical() method for JASDAQ' );
+@quote = Finance::YahooJPN::Quote->historical('23337', 'start' => '2009-01-01', 'last' => '2012-04-24');
+
+subtest 'ran historical() method for JASDAQ' => sub {
+	plan tests => $#quote + 1;
+	
+	for (my $i = 0; $i <= $#quote; $i++) {
+		cmp_ok($quote[$i], 'eq', $JASDAQ[$i], 'daily quote');
+	}
+
+	return 1;
+};
 
 __END__
 2000-03-01	1170	1170	1100	1140	45000

@@ -1,5 +1,9 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+1.04  2014-07-09 22:47:00 JST
+	- Lately Yahoo! Japan Finance had changed on a larger scale.
+	  Fixed for the changes.
+	  
 1.03  2012-05-12 04:17:00 JST
 	- bug-fix: i'm sorry the bug which was found at 1.02 wasn't
 	  completely healed. fixed it again.

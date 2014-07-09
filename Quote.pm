@@ -4,7 +4,7 @@ use 5.014;
 use warnings;
 use utf8;
 
-our $VERSION = '1.03'; # 2012-05-12 (since 2001-05-30)
+our $VERSION = '1.04'; # 2014-07-09 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
@@ -18,7 +18,7 @@ Finance::YahooJPN::Quote -- For fetching historical stock quotes in Japan from Y
 
   use Finance::YahooJPN::Quote;
   
-  # Get quote of Sony Corp. at the Tokyo stock exchange.
+  # Get the quote of Sony Corp. at the Tokyo stock exchange.
   my @quote = Finance::YahooJPN::Quote->historical('6758.t');
   
   print join("\n", @quote);
@@ -38,7 +38,7 @@ my $Today = join '-', (
     );
 undef $Japan_Standard_Time;
 
-my $Server = 'table.yahoo.co.jp';
+my $Server = 'info.finance.yahoo.co.jp';
 
 my $Debug = 0;
 
@@ -56,15 +56,15 @@ See the descriptions about the following methods for the argument and attributes
 
 sub debug {
     my($class, $level, $symbol, $start, $last) = @_;
-    if ($level !~ m/^[1-5]$/) {
-        croak 'You must specify debug level [1-5]';
+    if ($level !~ m/^[1-6]$/) {
+        croak 'You must specify debug level [1-6]';
     }
     $Debug = $level;
     
     my $self = $class->new($symbol);
     $self->scan('start' => $start, 'last' => $last);
-    print join("\n", $self->output('noadjust' => 1)) if $Debug == 4;
-    print join("\n", $self->output(               )) if $Debug == 5;
+    say join("\n", $self->output('noadjust' => 1)) if $Debug == 5;
+    say join("\n", $self->output(               )) if $Debug == 6;
 }
 
 sub historical {
@@ -74,23 +74,27 @@ sub historical {
     foreach my $key (keys %option) {
         my $lowercase = $key;
         $lowercase =~ tr/A-Z/a-z/;
-        unless ($lowercase eq 'start' or $lowercase eq 'noadjust') {
+        unless ($lowercase eq 'start' or $lowercase eq 'last' or $lowercase eq 'noadjust') {
             carp "unknown attribute name: $key (will be ignored)";
         }
         $option{$lowercase} = $option{$key};
     }
     
     if ($option{'start'}) {
-        $self->scan('start' => $option{'start'});
-    }
-    else {
+        if ($option{'last'}) {
+            $self->scan('start' => $option{'start'}, 'last' => $option{'last'});
+        } else {
+            $self->scan('start' => $option{'start'});
+        }
+    } elsif ($option{'last'}) {
+            $self->scan('last' => $option{'last'});
+    } else {
         $self->scan();
     }
     
     if ($option{'noadjust'} and $option{'noadjust'} == 1) {
         $self->output('noadjust' => 1);
-    }
-    else {
+    } else {
         $self->output();
     }
 }
@@ -101,10 +105,9 @@ Constructor class method. A stock C<$symbol> should be given with 4-digit code n
 
 Japanese stock markets use 4-digit code numbers for stock symbols. In addtion to that, an alphabetical letter extention is used for indicating its exchanging place. For example, the stock symbol code of Sony Corp. is '6758' and the letter extention of the Tokyo Stock Exchange is '.t'. Hence, the stock quote of Sony Corp. at Tokyo Stock Exchange is specified as '6758.t'.
 
-According to the Yahoo-Japan-Finance's description L<http://help.yahoo.co.jp/help/jp/finance/quote/quote-02.html> the letter extentions of exchanging place are:
+According to the Yahoo-Japan-Finance's description L<http://www.yahoo-help.jp/app/answers/detail/p/546/a_id/45387> the letter extentions of exchanging place are:
 
  .t: Tokyo   Stock Exchange
- .o: Osaka   Stock Exchange
  .q: JASDAQ
  .n: Nagoya  Stock Exchange
  .s: Sapporo Stock Exchange
@@ -112,7 +115,7 @@ According to the Yahoo-Japan-Finance's description L<http://help.yahoo.co.jp/hel
 
 Letter extention is omittable. When it is omit, the default exchange market is chosen by the Yahoo-Japan-Finance's server. It is not certain but I guess that the default one should be the main exchange market of the stock. Note: since almost symbols should work without letter extention, I have experienced certain problems with a few symbols those which have originally `.j' letter extention. This is of course not for the module but owe to the Yahoo-Japan-Finance server's behavior.
 
-There is exception for above. A few symbols of index are indicated in 5 to 7 digit code numbers. They are '998405' (TOPIX), '998407' (NIKKEI) and '23337' (JASDAQ). L<http://help.yahoo.co.jp/help/jp/finance/quote/quote-03.html>
+There is an exception for above. A few symbols of index are indicated in 5 to 7 digit code numbers. They are '998405' (TOPIX), '998407' (NIKKEI) and '23337' (JASDAQ). L<http://www.yahoo-help.jp/app/answers/detail/p/546/a_id/45388>
 
 =cut
 
@@ -169,38 +172,72 @@ sub scan {
     }
     
     # estimate term to fetch
-    my($year_a, $month_a, $day_a) = split /-/, $self->{'start'};
-    my($year_z, $month_z, $day_z) = split /-/, $self->{'last' };
+    my($yearStart, $monthStart, $dayStart) = split /-/, $self->{'start'};
+    my($yearEnd, $monthEnd, $dayEnd) = split /-/, $self->{'last' };
     
     # multi page fetching
-    for (my $page = 0; ; $page++) {
-        my $y = $page * 50; # 50rows/1page is max at Yahoo-Japan-Finance
-        my $abs_path = "/t?a=$month_a&b=$day_a&c=$year_a&d=$month_z&e=$day_z&f=$year_z&g=d&s=$self->{'symbol'}&y=$y";
-        my $remotedoc = decode( 'euc-jp', $self->_fetch($abs_path) );
+    while (1) {
+        # 50rows/1page is max at Yahoo-Japan-Finance
+        # So fuckin' Yahoo-Japan-Finance's paging algorithm has a certain serious bug that I can't utilize paging method.
         
-        # debug level 1 (it should output a raw html)
+        my $abs_path;
+        if ($yearEnd == $yearStart && $monthEnd == $monthStart) {
+            $abs_path = "/history/?code=$self->{'symbol'}&sy=$yearEnd&sm=$monthEnd&sd=$dayStart&ey=$yearEnd&em=$monthEnd&ed=$dayEnd&tm=d";
+        } else {
+            $abs_path = "/history/?code=$self->{'symbol'}&sy=$yearEnd&sm=$monthEnd&sd=01&ey=$yearEnd&em=$monthEnd&ed=$dayEnd&tm=d";
+        }
+        my $remotedoc = decode('utf-8', $self->_fetch($abs_path));
+        
+        # testing whether it is valid symbol or not.
+        if ($remotedoc =~ m/該当する銘柄はありません。/) {
+            say '該当する銘柄はありません。' if $Debug == 1;
+            last;
+        }
+        # testing whether it is valid term or not.
+        if ($remotedoc =~ m/該当する期間のデータはありません。/) {
+            say '該当する期間のデータはありません。' if $Debug == 1;
+            last;
+        }
+        # testing whether it is the overrun page (with bulk quote table) or not (currently it is no use withou paging method)
+        #if ($remotedoc =~ m|<th width="20%">日付</th>\n<th width="12%">始値</th>\n<th width="12%">高値</th>\n<th width="12%">安値</th>\n<th width="12%">終値</th>\n<th width="12%">出来高</th>\n<th width="20%">調整後終値\*</th>\n</tr></table>|) {
+        #    say 'page was overun' if $Debug == 1;
+        #    last;
+        #}
+        
         if ($Debug == 1) {
+            # debug level 1 (it should output a raw html)
             utf8::encode($remotedoc);
-            print $remotedoc;
-            exit;
+            say $remotedoc;
+        } else {
+            if ($self->{'symbol'} eq '998405'
+                or $self->{'symbol'} eq '998407'
+                or $self->{'symbol'} eq '23337'
+                ) {
+                # for index
+                $self->_collect_for_index($remotedoc);
+            } else {
+                # for stock
+                $self->_collect($remotedoc);
+            }
         }
         
-        # testing it is valid symbol or not.
-        if ($remotedoc =~ m/の価格データはありません。/) {
-            last;
-        }
-        # testing it is valid term or not.
-        if ($remotedoc =~ m/この検索期間の価格データはありません。/) {
-            last;
-        }
-        # testing whether it is the overrun page (without quote table) or not
-        unless ($remotedoc =~ m|<th><small>日付</small></th>\n<th><small>始値</small></th>\n<th><small>高値</small></th>\n<th><small>安値</small></th>\n<th><small>終値</small></th>|) {
+        if ($yearEnd == $yearStart && $monthEnd == $monthStart) {
+            say 'reached to the last date' if $Debug == 1;
             last;
         }
         
-        $self->_collect($remotedoc);
+        if ($dayEnd != 31) {
+            $dayEnd = 31;
+        }
+        
+        if ($monthEnd == 1) {
+            $yearEnd--;
+            $monthEnd = 12;
+        } else {
+            $monthEnd--;
+        }
     }
-    
+        
     return $self;
 }
 
@@ -241,142 +278,145 @@ sub _collect {
     # split the page to some lines
     my @html = split /\n/, $html;
     
-    # discard useless lines before quote rows.
+    # find the target line which includes the quote rows.
+    my $quoteLine;
     while (@html) {
         my $line = shift @html;
-        if (   $self->{'symbol'} eq '998405'
-            or $self->{'symbol'} eq '998407'
-            or $self->{'symbol'} eq '23337'
-        ) {
-            if ($line =~ m|^<th><small>終値</small></th>|) {
-                shift @html;
-                last;
-            }
-        }
-        if ($line =~ m|^<th><small>調整後終値\*</small></th>|) {
-            shift @html;
+        if ($line =~ m|^<th width="20%">調整後終値\*</th>$|) {
+            $quoteLine = shift @html;
+            $quoteLine =~ s/^<\/tr>//;
+            $quoteLine =~ s/<\/table>$//;
             last;
         }
     }
     
-    # debug level 2 (it should output an html which has been cut the header part)
+    # debug level 2 (it should output a line of html which has cropped )
     if ($Debug == 2) {
-        print encode('utf8', join("\n", @html));
+        say encode('utf8', $quoteLine);
         exit;
     }
     
-    if (   $self->{'symbol'} eq '998405'
-        or $self->{'symbol'} eq '998407'
-        or $self->{'symbol'} eq '23337'
-    ) {
-        while ($html[0] eq '</tr><tr align=right bgcolor="#ffffff">'
-            or $html[0] eq '<tr align=right bgcolor="#ffffff">'
-            or $html[0] eq '</tr><tr bgcolor="#ffffff">'
-            or $html[0] eq '<tr bgcolor="#ffffff">'
-        ) {
-            shift @html;
-            
-            $html[0] =~ m|<td><small>(\d{4})年(\d{1,2})月(\d{1,2})日</small></td>|;
-            my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
-            shift @html;
-            
-            $html[0] =~ m|<td><small>(.+?)</small></td>|;
-            my $open = $1;
-            shift @html;
-            
-            $html[0] =~ m|<td><small>(.+?)</small></td>|;
-            my $high = $1;
-            shift @html;
-            
-            $html[0] =~ m|<td><small>(.+?)</small></td>|;
-            my $low = $1;
-            shift @html;
-            
-            $html[0] =~ m|<small><b>(.+?)</b></small></td>|;
-            my $close = $1;
-            shift @html;
-            
-            foreach my $num ($open, $high, $low, $close) {
-                $num =~ tr/,//d;
-            }
-            
-            # store the quote data as a package variable
-            unshift @{ $self->{'q_noadjust'} }, join("\t", $date, $open, $high, $low, $close);
-        }
-    }
-    else {
-        while ($html[0] eq '</tr><tr align=right bgcolor="#ffffff">'
-            or $html[0] eq '<tr align=right bgcolor="#ffffff">'
-            or $html[0] eq '</tr><tr bgcolor="#ffffff">'
-            or $html[0] eq '</tr><tr bgcolor=#ffffff>'
-            or $html[0] eq '<tr bgcolor="#ffffff">'
-            or $html[0] eq '<tr bgcolor=#ffffff>'
-        ) {
-            if (   $html[0] eq '</tr><tr bgcolor="#ffffff">'
-                or $html[0] eq '</tr><tr bgcolor=#ffffff>'
-                or $html[0] eq '<tr bgcolor="#ffffff">'
-                or $html[0] eq '<tr bgcolor=#ffffff>'
-            ) {
-                # this is a split data
-                shift @html;
-                $html[0] =~ m/(\d{4})年(\d{1,2})月(\d{1,2})日/;
-                my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
-                shift @html;
-                $html[0] =~ m/分割: (.+?)株 -> (.+?)株/;
-                my($split_pre, $split_post) = ($1, $2);
-                shift @html;
-                
-                # store this split data as a package variable
-                push @{ $self->{'splits'} }, join("\t", $date, $split_pre, $split_post);
-                
-                next;
-            }
-            
-            shift @html;
-            
-            $html[0] =~ m|<td><small>(\d{4})年(\d{1,2})月(\d{1,2})日</small></td>|;
-            my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
-            shift @html;
-            
-            $html[0] =~ m|<td><small>(.+?)</small></td>|;
-            my $open = $1;
-            shift @html;
-            
-            $html[0] =~ m|<td><small>(.+?)</small></td>|;
-            my $high = $1;
-            shift @html;
-            
-            $html[0] =~ m|<td><small>(.+?)</small></td>|;
-            my $low = $1;
-            shift @html;
-            
-            $html[0] =~ m|<small><b>(.+?)</b></small></td>|;
-            my $close = $1;
-            shift @html;
-            
-            $html[0] =~ m|<td><small>(.+?)</small></td>|;
-            my $volume = $1;
-            shift @html;
-            
-            foreach my $num ($open, $high, $low, $close, $volume) {
-                $num =~ tr/,//d;
-            }
-            
-            # discard the ajusted closing price
-            shift @html;
-            
-            # store the quote data as a package variable
-            unshift @{ $self->{'q_noadjust'} }, join("\t", $date, $open, $high, $low, $close, $volume);
-        }
-    }
+    # split to every quote rows
+    $quoteLine =~ s/^<tr>//;
+    $quoteLine =~ s/<\/tr>$//;
+    my @row = split /<\/tr><tr.*?>/, $quoteLine;
     
-    # debug level 3 (it should output the rest (footer) of html)
+    # debug level 3 (it should output multi-line of quote rows)
     if ($Debug == 3) {
-        print encode('utf8', join("\n", @html));
+        say encode('utf8', join("\n", @row));
         exit;
+    }
+    
+    foreach my $row (@row) {
+        if ($row =~ m/class="through"/) {
+            # this is a split data
+            $row =~ m/<td>(\d{4})年(\d{1,2})月(\d{1,2})日<\/td>/;
+            my $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
+            $row =~ m/分割: (.+?)株 -> (.+?)株/;
+            my($split_pre, $split_post) = ($1, $2);
+            
+            # store this split data in a field object
+            push @{ $self->{'splits'} }, join("\t", $date, $split_pre, $split_post);
+            say join("\t", $date, $split_pre, $split_post) if $Debug == 4;
+            
+            next;
+        }
+        
+        # split to every columns
+        # (the ajusted closing price is discarded)
+        $row =~ s/^<td>//;
+        $row =~ s/<\/td>$//;
+        my($date, $open, $high, $low, $close, $volume, undef) = split /<\/td><td>/, $row;
+
+        # date reformatting
+        $date =~ m/(\d{4})年(\d{1,2})月(\d{1,2})日/;
+        $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
+
+	# remove comma signs from each number
+        foreach my $num ($open, $high, $low, $close, $volume) {
+            $num =~ tr/,//d;
+        }
+            
+        # store the quote data in a field object
+        unshift @{ $self->{'q_noadjust'} }, join("\t", $date, $open, $high, $low, $close, $volume);
+        
+        if ($Debug == 4) {
+            say join("\t", $date, $open, $high, $low, $close, $volume);
+            exit;
+        }
     }
     
     $self->_adjustment();
+    
+    return $self;
+}
+
+# _collect_for_index($html)
+# a customized version of _collect($html)
+sub _collect_for_index {
+    my($self, $html) = @_;
+    
+    # split the page to some lines
+    my @html = split /\n/, $html;
+    
+    # find the target line which includes the quote rows.
+    my $quoteLine;
+    while (@html) {
+        my $line = shift @html;
+        if ($line =~ m|^<th width="12%">終値</th>$|) {
+            $quoteLine = shift @html;
+            $quoteLine =~ s/^<\/tr>//;
+            $quoteLine =~ s/<\/table>$//;
+            last;
+        }
+    }
+    
+    # debug level 2 (it should output a line of html which has cropped )
+    if ($Debug == 2) {
+        say encode('utf8', $quoteLine);
+        exit;
+    }
+        
+    # split to every quote rows
+    $quoteLine =~ s/^<tr>//;
+    $quoteLine =~ s/<\/tr>$//;
+    my @row = split /<\/tr><tr.*?>/, $quoteLine;
+    
+    # debug level 3 (it should output multi-line of quote rows)
+    if ($Debug == 3) {
+        say encode('utf8', join("\n", @row));
+        exit;
+    }
+    
+    foreach my $row (@row) {
+        # an index has no concept of splitting
+    
+        # split to every columns (index has no volume data)
+        $row =~ s/^<td>//;
+        $row =~ s/<\/td>$//;
+        my($date, $open, $high, $low, $close) = split /<\/td><td>/, $row;
+
+        # date reformatting
+        $date =~ m/(\d{4})年(\d{1,2})月(\d{1,2})日/;
+        $date = join '-', $1, sprintf('%02d', $2), sprintf('%02d', $3);
+
+	# remove comma signs from each number and normalize floating point format
+        foreach my $num ($open, $high, $low, $close) {
+            $num =~ tr/,//d;
+            $num = sprintf('%.2f', $num);
+        }
+            
+        # store the quote data in a field object
+        unshift @{ $self->{'q_noadjust'} }, join("\t", $date, $open, $high, $low, $close);
+        
+        if ($Debug == 4) {
+            say join("\t", $date, $open, $high, $low, $close);
+            exit;
+        }
+    }
+    
+    # Since an index has no concept of adjustment, the adjusted equals to the non-adjusted.
+    @{ $self->{'q_adjust'} } = @{ $self->{'q_noadjust'} };
     
     return $self;
 }
@@ -468,7 +508,7 @@ Masanori HATA L<http://www.mihr.net/> (Saitama, JAPAN)
 
 =head1 COPYRIGHT
 
-Copyright © 2001-2012 Masanori HATA. All rights reserved.
+Copyright (c) 2001-2014 Masanori HATA. All rights reserved.
 
 This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 

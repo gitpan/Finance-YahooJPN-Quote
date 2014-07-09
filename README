@@ -5,7 +5,7 @@ NAME
 SYNOPSIS
       use Finance::YahooJPN::Quote;
   
-      # Get quote of Sony Corp. at the Tokyo stock exchange.
+      # Get the quote of Sony Corp. at the Tokyo stock exchange.
       my @quote = Finance::YahooJPN::Quote->historical('6758.t');
   
       print join("\n", @quote);
@@ -38,11 +38,10 @@ METHODS
         Stock Exchange is specified as '6758.t'.
 
         According to the Yahoo-Japan-Finance's description
-        <http://help.yahoo.co.jp/help/jp/finance/quote/quote-02.html> the
+        <http://www.yahoo-help.jp/app/answers/detail/p/546/a_id/45387> the
         letter extentions of exchanging place are:
 
          .t: Tokyo   Stock Exchange
-         .o: Osaka   Stock Exchange
          .q: JASDAQ
          .n: Nagoya  Stock Exchange
          .s: Sapporo Stock Exchange
@@ -57,10 +56,10 @@ METHODS
         of course not for the module but owe to the Yahoo-Japan-Finance
         server's behavior.
 
-        There is exception for above. A few symbols of index are indicated
-        in 5 to 7 digit code numbers. They are '998405' (TOPIX), '998407'
-        (NIKKEI) and '23337' (JASDAQ).
-        <http://help.yahoo.co.jp/help/jp/finance/quote/quote-03.html>
+        There is an exception for above. A few symbols of index are
+        indicated in 5 to 7 digit code numbers. They are '998405' (TOPIX),
+        '998407' (NIKKEI) and '23337' (JASDAQ).
+        <http://www.yahoo-help.jp/app/answers/detail/p/546/a_id/45388>
 
     scan(['start' => $start])
         This object method is for scanning the stock's historical quote
@@ -106,7 +105,7 @@ AUTHOR
     Masanori HATA <http://www.mihr.net/> (Saitama, JAPAN)
 
 COPYRIGHT
-    Copyright © 2001-2012 Masanori HATA. All rights reserved.
+    Copyright (c) 2001-2014 Masanori HATA. All rights reserved.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

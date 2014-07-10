@@ -1,5 +1,11 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+1.05  2014-07-10 21:15:00 JST
+	- Previously I used int() for rounding numbers. But it is
+	  in fact bad practice. And sometimes it caused failing tests.
+	  Now I know it. I have modified it to use sprintf() for
+	  the purpose to round numbers.
+	  
 1.04  2014-07-09 22:47:00 JST
 	- Lately Yahoo! Japan Finance had changed on a larger scale.
 	  Fixed for the changes.

@@ -4,7 +4,7 @@ use 5.014;
 use warnings;
 use utf8;
 
-our $VERSION = '1.04'; # 2014-07-09 (since 2001-05-30)
+our $VERSION = '1.05'; # 2014-07-10 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
@@ -433,10 +433,10 @@ sub _adjustment {
     my $j = $last;
     for (my $k = 0; $k <= $#{ $self->{'splits'} }; $k++) {
         my($split_date, $split_pre, $split_post) =
-          split /\t/, $self->{'splits'}->[$k];
+          split "\t", $self->{'splits'}->[$k];
         
         for (my $i = $j; $i >= 0; $i--) {
-            my $date = ( split /\t/, $self->{'q_adjust'}->[$i] )[0];
+            my $date = ( split "\t", $self->{'q_adjust'}->[$i] )[0];
             if ($date eq $split_date) {
                 $j = $i - 1;
                 last;
@@ -448,9 +448,10 @@ sub _adjustment {
               split /\t/, $self->{'q_adjust'}->[$i];
             
             foreach my $price ($open, $high, $low, $close) {
-                $price = int($price * $split_pre / $split_post + 0.5);
+                # int() shouldn't be used for rounding. Previously I didn't know that...
+                $price = sprintf('%d', $price * $split_pre / $split_post + 0.5);
             }
-            $volume = int($volume * $split_post / $split_pre + 0.5);
+            $volume = sprintf('%d', $volume * $split_post / $split_pre + 0.5);
             
             $self->{'q_adjust'}->[$i] =
               "$date\t$open\t$high\t$low\t$close\t$volume";

@@ -4,7 +4,7 @@ use 5.014;
 use warnings;
 use utf8;
 
-our $VERSION = '1.05'; # 2014-07-10 (since 2001-05-30)
+our $VERSION = '1.06'; # 2014-07-12 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
@@ -243,24 +243,38 @@ sub scan {
 
 # _fetch($url)
 # This private method is for fetching a web page.
+my $MAX_RETRY = 3;
 sub _fetch {
     my($self, $abs_path) = @_;
     
-    my $sock = IO::Socket::INET->new(
-        PeerAddr => $Server,
-        PeerPort => 'http(80)',
-        Proto    => 'tcp',
-        ) or die "Couldn't connect to $Server";
+    my @html;
+    for (my $i = 0; $i < $MAX_RETRY; $i++) {
+        my $sock = IO::Socket::INET->new(
+            PeerAddr => $Server,
+            PeerPort => 'http(80)',
+            Proto    => 'tcp',
+            Timeout  => 10,
+            ) or die "Couldn't connect to $Server";
     
-    print $sock <<"EOF";
+        print $sock <<"EOF";
 GET $abs_path HTTP/1.1
 Host: $Server
 Connection: close
 
 EOF
     
-    my @html = <$sock>;
-    close $sock;
+        @html = <$sock>;
+        close $sock;
+        
+        if ($html[0] =~ /^HTTP\/1\.1 200 OK/) {
+            last;
+        } else {
+            # retry upto $MAX_RETRY times
+            if ($i >= $MAX_RETRY - 2) {
+                die 'Network connection error: reached $MAX_RETRY';
+            }
+        }
+    }
     
     my $html = join '', @html;
     # newline character unification

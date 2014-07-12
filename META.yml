@@ -15,11 +15,11 @@ name: Finance-YahooJPN-Quote
 provides:
   Finance::YahooJPN::Quote:
     file: Quote.pm
-    version: 1.05
+    version: 1.06
 recommends:
   perl: v5.18.2
 requires:
   perl: v5.14.0
 resources:
   license: http://dev.perl.org/licenses/
-version: 1.05
+version: 1.06

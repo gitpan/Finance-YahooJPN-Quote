@@ -1,5 +1,9 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+1.06  2014-07-12 23:45:00 JST
+	- Improved stability in network connection by implementing
+	  connetion retrying feature.
+	
 1.05  2014-07-10 21:15:00 JST
 	- Previously I used int() for rounding numbers. But it is
 	  in fact bad practice. And sometimes it caused failing tests.

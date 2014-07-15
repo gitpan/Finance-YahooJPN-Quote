@@ -1,18 +1,20 @@
 package Finance::YahooJPN::Quote;
 
-use 5.014;
+use 5.16.3;
 use warnings;
 use utf8;
 
-our $VERSION = '1.06'; # 2014-07-12 (since 2001-05-30)
+our $VERSION = '1.07'; # 2014-07-14 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
 use Encode;
+use Math::Round;
+use Module::Load;
 
 =head1 NAME
 
-Finance::YahooJPN::Quote -- For fetching historical stock quotes in Japan from Yahoo! Japan Finance.
+Finance::YahooJPN::Quote -- Fetch historical stock quotes in Japan from Yahoo! Japan Finance.
 
 =head1 SYNOPSIS
 
@@ -141,6 +143,117 @@ sub new {
     return $self;
 }
 
+my $MAX_RETRY = 3;
+
+# _fetch($url)
+# This private method is for fetching a web page.
+sub _fetch {
+    my($self, $abs_path) = @_;
+    
+    my @html;
+    for (my $i = 0; $i < $MAX_RETRY; $i++) {
+        my $sock = IO::Socket::INET->new(
+            PeerAddr => $Server,
+            PeerPort => 'http(80)',
+            Proto    => 'tcp',
+            Timeout  => 10,
+            ) or die "Couldn't connect to $Server";
+    
+        print $sock <<"EOF";
+GET $abs_path HTTP/1.1
+Host: $Server
+Connection: close
+
+EOF
+    
+        @html = <$sock>;
+        close $sock;
+        
+        if ($html[0] =~ /^HTTP\/1\.1 200 OK/) {
+            last;
+        } else {
+            # retry upto $MAX_RETRY times
+            if ($i >= $MAX_RETRY - 2) {
+                die 'Network connection error: reached $MAX_RETRY';
+            }
+        }
+    }
+    
+    my $html = join '', @html;
+    # newline character unification
+    $html =~ s/\x0D\x0A|\x0D|\x0A/\n/g;
+    
+    return $html;
+}
+
+=item set_proxy($proxy [, 'socks_version' => $version]) *EXPERIMENTAL*
+
+Set proxy. C<$proxy> must be given in format like '192.168.0.1:8080' (port is needed).
+
+If the proxy server is other than SOCKS5 (inevitably it is SOCKS4), you must give c<$socks_version> (i.e. 'socks_version' => 4).
+
+Unfortunately, I can offer very limited support for this feature since I don't have proper testing environment for proxy. So this feature is just experimental and I have no plan for upgrading it to non-experimental state in the future. And also, the install package's test suite is only for non-proxy.
+
+=cut
+
+sub set_proxy {
+    my $self = shift;
+    $self->{'proxy'} = shift;
+    my %option = @_;
+    
+    $self->{'socks_version'} = $option{'version'} || 5;
+    
+    return $self;
+}
+
+# _fetch_proxy($url)
+# Another method for fetching a web page with proxy.
+sub _fetch_proxy {
+    load 'IO::Socket::Socks';
+    my($self, $abs_path) = @_;
+    
+    my($proxy_addr, $proxy_port) = split ':', $self->{'proxy'};
+    
+    my @html;
+    for (my $i = 0; $i < $MAX_RETRY; $i++) {
+        my $socks = IO::Socket::Socks->new(
+            ConnectAddr  => $Server,
+            ConnectPort  => 80,
+            Proto        => 'tcp',
+            ProxyAddr    => $proxy_addr,
+            ProxyPort    => $proxy_port,
+            SocksVersion => $self->{'socks_version'}, # default 5
+            # SocksDebug   => 1,
+            # Timeout  => 10,
+            ) or die "Couldn't connect to $Server via " . $self->{'proxy'};
+            
+        print $socks <<"EOF";
+GET $abs_path HTTP/1.1
+Host: $Server
+Connection: close
+
+EOF
+    
+        @html = <$socks>;
+        close $socks;
+        
+        if ($html[0] =~ /^HTTP\/1\.1 200 OK/) {
+            last;
+        } else {
+            # retry upto $MAX_RETRY times
+            if ($i >= $MAX_RETRY - 2) {
+                die 'Network connection error: reached $MAX_RETRY';
+            }
+        }
+    }
+    
+    my $html = join '', @html;
+    # newline character unification
+    $html =~ s/\x0D\x0A|\x0D|\x0A/\n/g;
+    
+    return $html;
+}
+
 =item scan(['start' => $start])
 
 This object method is for scanning the stock's historical quote pages of Yahoo-Japan-Finance from the C<$start> date to the current date. And for picking up quote data of each day on those pages.
@@ -186,7 +299,12 @@ sub scan {
         } else {
             $abs_path = "/history/?code=$self->{'symbol'}&sy=$yearEnd&sm=$monthEnd&sd=01&ey=$yearEnd&em=$monthEnd&ed=$dayEnd&tm=d";
         }
-        my $remotedoc = decode('utf-8', $self->_fetch($abs_path));
+        my $remotedoc;
+        if ($self->{'proxy'}) {
+            $remotedoc = decode('utf-8', $self->_fetch_proxy($abs_path));
+        } else {
+            $remotedoc = decode('utf-8', $self->_fetch($abs_path));
+        }
         
         # testing whether it is valid symbol or not.
         if ($remotedoc =~ m/該当する銘柄はありません。/) {
@@ -239,48 +357,6 @@ sub scan {
     }
         
     return $self;
-}
-
-# _fetch($url)
-# This private method is for fetching a web page.
-my $MAX_RETRY = 3;
-sub _fetch {
-    my($self, $abs_path) = @_;
-    
-    my @html;
-    for (my $i = 0; $i < $MAX_RETRY; $i++) {
-        my $sock = IO::Socket::INET->new(
-            PeerAddr => $Server,
-            PeerPort => 'http(80)',
-            Proto    => 'tcp',
-            Timeout  => 10,
-            ) or die "Couldn't connect to $Server";
-    
-        print $sock <<"EOF";
-GET $abs_path HTTP/1.1
-Host: $Server
-Connection: close
-
-EOF
-    
-        @html = <$sock>;
-        close $sock;
-        
-        if ($html[0] =~ /^HTTP\/1\.1 200 OK/) {
-            last;
-        } else {
-            # retry upto $MAX_RETRY times
-            if ($i >= $MAX_RETRY - 2) {
-                die 'Network connection error: reached $MAX_RETRY';
-            }
-        }
-    }
-    
-    my $html = join '', @html;
-    # newline character unification
-    $html =~ s/\x0D\x0A|\x0D|\x0A/\n/g;
-    
-    return $html;
 }
 
 # _collect($html)
@@ -356,7 +432,6 @@ sub _collect {
         
         if ($Debug == 4) {
             say join("\t", $date, $open, $high, $low, $close, $volume);
-            exit;
         }
     }
     
@@ -425,7 +500,6 @@ sub _collect_for_index {
         
         if ($Debug == 4) {
             say join("\t", $date, $open, $high, $low, $close);
-            exit;
         }
     }
     
@@ -445,10 +519,11 @@ sub _adjustment {
     my $last = $#{ $self->{'q_adjust'} };
     
     my $j = $last;
+    # calculation will undergo for newer split earlier for older split later.
     for (my $k = 0; $k <= $#{ $self->{'splits'} }; $k++) {
-        my($split_date, $split_pre, $split_post) =
-          split "\t", $self->{'splits'}->[$k];
+        my($split_date, $split_pre, $split_post) = split "\t", $self->{'splits'}->[$k];
         
+        # find the index of quote on the split date.
         for (my $i = $j; $i >= 0; $i--) {
             my $date = ( split "\t", $self->{'q_adjust'}->[$i] )[0];
             if ($date eq $split_date) {
@@ -458,14 +533,14 @@ sub _adjustment {
         }
         
         for (my $i = 0; $i <= $j; $i++) {
-            my($date, $open, $high, $low, $close, $volume) =
-              split /\t/, $self->{'q_adjust'}->[$i];
+            my($date, $open, $high, $low, $close, $volume) = split /\t/, $self->{'q_adjust'}->[$i];
             
             foreach my $price ($open, $high, $low, $close) {
-                # int() shouldn't be used for rounding. Previously I didn't know that...
-                $price = sprintf('%d', $price * $split_pre / $split_post + 0.5);
+                # int() or sprintf() shouldn't be used for rounding. Previously I didn't know that...
+                # Math::Round::nearest(1, $value) should be used.
+                $price = nearest(1, $price * $split_pre / $split_post);
             }
-            $volume = sprintf('%d', $volume * $split_post / $split_pre + 0.5);
+            $volume = nearest(1, $volume * $split_post / $split_pre);
             
             $self->{'q_adjust'}->[$i] =
               "$date\t$open\t$high\t$low\t$close\t$volume";

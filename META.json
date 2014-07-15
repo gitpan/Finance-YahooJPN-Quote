@@ -1,10 +1,10 @@
 {
-   "abstract" : "For fetching historical stock quotes in Japan from Yahoo! Japan Finance.",
+   "abstract" : "Fetch historical stock quotes in Japan from Yahoo! Japan Finance.",
    "author" : [
       "Masanori HATA <http://www.mihr.net/> (Saitama, JAPAN)"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4003, CPAN::Meta::Converter version 2.120921",
+   "generated_by" : "Module::Build version 0.4205",
    "license" : [
       "perl_5"
    ],
@@ -16,22 +16,24 @@
    "prereqs" : {
       "configure" : {
          "requires" : {
-            "Module::Build" : "0.40"
+            "Module::Build" : "0.42"
          }
       },
       "runtime" : {
          "recommends" : {
-            "perl" : "v5.18.2"
+            "IO::Socket::Socks" : "0.63",
+            "perl" : "v5.20.0"
          },
          "requires" : {
-            "perl" : "v5.14.0"
+            "Math::Round" : "0.06",
+            "perl" : "v5.16.3"
          }
       }
    },
    "provides" : {
       "Finance::YahooJPN::Quote" : {
          "file" : "Quote.pm",
-         "version" : "1.06"
+         "version" : "1.07"
       }
    },
    "release_status" : "stable",
@@ -40,5 +42,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "1.06"
+   "version" : "1.07"
 }

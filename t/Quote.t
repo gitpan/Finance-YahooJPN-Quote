@@ -1,5 +1,5 @@
 #!/usr/local/bin/perl -w
-use 5.014;
+use 5.16.3;
 use warnings;
 
 use Test::More tests => 10;
@@ -88,6 +88,7 @@ subtest 'ran historical() method (includes new(), scan() and output())' => sub {
 
 #######################################################
 $obj = Finance::YahooJPN::Quote->new('9437.t');
+#$obj->set_proxy('', version => 4);
 $obj->scan('start' => '2002-03-26', 'last' => '2002-03-26');
 @quote = $obj->output();
 my $quote = $quote[0];
@@ -97,6 +98,7 @@ cmp_ok($quote, 'eq', $expected, 'in a rare case split data is at the top row');
 
 #######################################################
 $obj = Finance::YahooJPN::Quote->new('0000.t');
+#$obj->set_proxy('', version => 4);
 $obj->scan('start' => '2003-09-01', 'last' => '2003-09-30');
 @quote = $obj->output();
 $quote = join "\n", @quote;

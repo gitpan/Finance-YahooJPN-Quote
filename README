@@ -1,6 +1,6 @@
 NAME
-    Finance::YahooJPN::Quote -- For fetching historical stock quotes in
-    Japan from Yahoo! Japan Finance.
+    Finance::YahooJPN::Quote -- Fetch historical stock quotes in Japan from
+    Yahoo! Japan Finance.
 
 SYNOPSIS
       use Finance::YahooJPN::Quote;
@@ -60,6 +60,19 @@ METHODS
         indicated in 5 to 7 digit code numbers. They are '998405' (TOPIX),
         '998407' (NIKKEI) and '23337' (JASDAQ).
         <http://www.yahoo-help.jp/app/answers/detail/p/546/a_id/45388>
+
+    set_proxy($proxy [, 'socks_version' => $version]) *EXPERIMENTAL*
+        Set proxy. $proxy must be given in format like '192.168.0.1:8080'
+        (port is needed).
+
+        If the proxy server is other than SOCKS5 (inevitably it is SOCKS4),
+        you must give c<$socks_version> (i.e. 'socks_version' => 4).
+
+        Unfortunately, I can offer very limited support for this feature
+        since I don't have proper testing environment for proxy. So this
+        feature is just experimental and I have no plan for upgrading it to
+        non-experimental state in the future. And also, the install
+        package's test suite is only for non-proxy.
 
     scan(['start' => $start])
         This object method is for scanning the stock's historical quote

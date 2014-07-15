@@ -1,5 +1,14 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+1.07  2014-07-16 00:54:00 JST
+	- Again fixed bug about rounding numbers. Using sprintf()
+	  was not the answer. I decided to use the
+	  Math::Round::nearest for rounding.
+	- Added proxy support (experimental feature).
+	- As of having been ended official support for the Perl 5.14.x
+	  (including "critical" security patches / releases),
+	  I raised this module's minimum requirement to 5.16.3.
+	  
 1.06  2014-07-12 23:45:00 JST
 	- Improved stability in network connection by implementing
 	  connetion retrying feature.

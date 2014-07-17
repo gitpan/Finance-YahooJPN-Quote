@@ -1,6 +1,6 @@
 Changes			Revision history
 Quote.pm		For fetching histrical stock quotes in Japan from Yahoo! Japan Finance.
-Build.pl		To generate the Build
+Build.PL		To generate the Build
 Makefile.PL		To generate the Makefile
 MANIFEST		(this file)
 README			Manual information of the module

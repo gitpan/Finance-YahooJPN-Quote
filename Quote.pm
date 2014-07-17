@@ -4,17 +4,16 @@ use 5.16.3;
 use warnings;
 use utf8;
 
-our $VERSION = '1.07'; # 2014-07-14 (since 2001-05-30)
+our $VERSION = '1.08'; # 2014-07-18 (since 2001-05-30)
 
 use Carp;
 use IO::Socket;
 use Encode;
-use Math::Round;
 use Module::Load;
 
 =head1 NAME
 
-Finance::YahooJPN::Quote -- Fetch historical stock quotes in Japan from Yahoo! Japan Finance.
+Finance::YahooJPN::Quote -- Fetch historical Japanese stock quotes on Yahoo! Japan Finance.
 
 =head1 SYNOPSIS
 
@@ -143,7 +142,7 @@ sub new {
     return $self;
 }
 
-my $MAX_RETRY = 3;
+my $MAX_RETRY = 10;
 
 # _fetch($url)
 # This private method is for fetching a web page.
@@ -152,12 +151,21 @@ sub _fetch {
     
     my @html;
     for (my $i = 0; $i < $MAX_RETRY; $i++) {
-        my $sock = IO::Socket::INET->new(
+        my $sock;
+        unless ($sock = IO::Socket::INET->new(
             PeerAddr => $Server,
             PeerPort => 'http(80)',
             Proto    => 'tcp',
             Timeout  => 10,
-            ) or die "Couldn't connect to $Server";
+            )) {
+            # retry upto $MAX_RETRY times
+            if ($i < $MAX_RETRY - 1) {
+                sleep 20;
+                next;
+            } else {
+                die "Network connection error to $Server; reached max retry: $MAX_RETRY";
+            }
+        }
     
         print $sock <<"EOF";
 GET $abs_path HTTP/1.1
@@ -173,8 +181,11 @@ EOF
             last;
         } else {
             # retry upto $MAX_RETRY times
-            if ($i >= $MAX_RETRY - 2) {
-                die 'Network connection error: reached $MAX_RETRY';
+            if ($i < $MAX_RETRY - 1) {
+                sleep 10;
+                next;
+            } else {
+                die "Network communication error with $Server; reached max retry: $MAX_RETRY";
             }
         }
     }
@@ -269,7 +280,7 @@ Note that datetime of this module is based on JST (Japan Standard Time: GMT +09:
 sub scan {
     my($self, %term) = @_;
     
-    $self->{'start'} = '1990-01-01';
+    $self->{'start'} = '1983-01-01';
     $self->{'last' } = $Today;
     
     foreach my $key (keys %term) {
@@ -291,7 +302,7 @@ sub scan {
     # multi page fetching
     while (1) {
         # 50rows/1page is max at Yahoo-Japan-Finance
-        # So fuckin' Yahoo-Japan-Finance's paging algorithm has a certain serious bug that I can't utilize paging method.
+        # So the poor Yahoo-Japan-Finance's paging algorithm has a certain serious bug that I can't utilize paging method.
         
         my $abs_path;
         if ($yearEnd == $yearStart && $monthEnd == $monthStart) {
@@ -405,8 +416,8 @@ sub _collect {
             $row =~ m/分割: (.+?)株 -> (.+?)株/;
             my($split_pre, $split_post) = ($1, $2);
             
-            # store this split data in a field object
-            push @{ $self->{'splits'} }, join("\t", $date, $split_pre, $split_post);
+            # store this split datum (a hash) as an object member
+            push @{ $self->{'splits'} }, {'date' => $date, 'pre' => $split_pre, 'post' => $split_post};
             say join("\t", $date, $split_pre, $split_post) if $Debug == 4;
             
             next;
@@ -518,32 +529,39 @@ sub _adjustment {
     @{ $self->{'q_adjust'} } = @{ $self->{'q_noadjust'} };
     my $last = $#{ $self->{'q_adjust'} };
     
-    my $j = $last;
-    # calculation will undergo for newer split earlier for older split later.
-    for (my $k = 0; $k <= $#{ $self->{'splits'} }; $k++) {
-        my($split_date, $split_pre, $split_post) = split "\t", $self->{'splits'}->[$k];
+    # calculate cumulative values of each split ratio.
+    # * splits are stored in descending order.
+    my($cumulativePre, $cumulativePost) = (1, 1);
+    for (my $i = 0; $i <= $#{ $self->{'splits'} }; $i++) {
+        # calculate cumulative values from the current split values.
+        $cumulativePre  *= $self->{'splits'}->[$i]->{'pre'};
+        $cumulativePost *= $self->{'splits'}->[$i]->{'post'};
+        # calculate ratios from the cumulative values and store them as members of the object
+        $self->{'splits'}->[$i]->{'ratio_price'}  = $cumulativePre  / $cumulativePost;
+        $self->{'splits'}->[$i]->{'ratio_volume'} = $cumulativePost / $cumulativePre;
+    }
+    
+    # In order to process splits in ascending order, reverse order for-loop is used.
+    my $start = 0;
+    for (my $i = $#{ $self->{'splits'} }; $i >= 0; $i--) {
+        my($split_date, $ratio_price, $ratio_volume) = ($self->{'splits'}->[$i]->{'date'}, $self->{'splits'}->[$i]->{'ratio_price'}, $self->{'splits'}->[$i]->{'ratio_volume'});
         
-        # find the index of quote on the split date.
-        for (my $i = $j; $i >= 0; $i--) {
-            my $date = ( split "\t", $self->{'q_adjust'}->[$i] )[0];
+        for (my $j = $start; $j <= $#{ $self->{'q_adjust'} }; $j++) {
+            my($date, $open, $high, $low, $close, $volume) = split /\t/, $self->{'q_adjust'}->[$j];
+            
             if ($date eq $split_date) {
-                $j = $i - 1;
+                # this is start period of the next split; quit this loop and go next loop.
+                $start = $j;
                 last;
             }
-        }
-        
-        for (my $i = 0; $i <= $j; $i++) {
-            my($date, $open, $high, $low, $close, $volume) = split /\t/, $self->{'q_adjust'}->[$i];
             
             foreach my $price ($open, $high, $low, $close) {
-                # int() or sprintf() shouldn't be used for rounding. Previously I didn't know that...
-                # Math::Round::nearest(1, $value) should be used.
-                $price = nearest(1, $price * $split_pre / $split_post);
+                # The value 0.50000000000008 was derived from Math::Round::half
+                $price = int($price  * $ratio_price  + 0.50000000000008);
             }
-            $volume = nearest(1, $volume * $split_post / $split_pre);
+            $volume    = int($volume * $ratio_volume + 0.50000000000008);
             
-            $self->{'q_adjust'}->[$i] =
-              "$date\t$open\t$high\t$low\t$close\t$volume";
+            $self->{'q_adjust'}->[$j] = "$date\t$open\t$high\t$low\t$close\t$volume";
         }
     }
     

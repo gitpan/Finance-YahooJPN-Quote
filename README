@@ -1,5 +1,5 @@
 NAME
-    Finance::YahooJPN::Quote -- Fetch historical stock quotes in Japan from
+    Finance::YahooJPN::Quote -- Fetch historical Japanese stock quotes on
     Yahoo! Japan Finance.
 
 SYNOPSIS

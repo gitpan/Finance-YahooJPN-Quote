@@ -1,5 +1,5 @@
 {
-   "abstract" : "Fetch historical stock quotes in Japan from Yahoo! Japan Finance.",
+   "abstract" : "Fetch historical Japanese stock quotes on Yahoo! Japan Finance.",
    "author" : [
       "Masanori HATA <http://www.mihr.net/> (Saitama, JAPAN)"
    ],
@@ -25,7 +25,6 @@
             "perl" : "v5.20.0"
          },
          "requires" : {
-            "Math::Round" : "0.06",
             "perl" : "v5.16.3"
          }
       }
@@ -33,7 +32,7 @@
    "provides" : {
       "Finance::YahooJPN::Quote" : {
          "file" : "Quote.pm",
-         "version" : "1.07"
+         "version" : "1.08"
       }
    },
    "release_status" : "stable",
@@ -42,5 +41,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "1.07"
+   "version" : "1.08"
 }

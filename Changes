@@ -1,5 +1,11 @@
 Revision history for Perl extension Finance::YahooJPN::Quote.
 
+1.08  2014-07-18 01:03:00 JST
+	- Removed Math::Round by implementing equivalent algorithm.
+	- Re-wrote calculation method for adjusted values to
+	  get more precise numbers.
+	- Re-improved stability in network connection.
+	
 1.07  2014-07-16 00:54:00 JST
 	- Again fixed bug about rounding numbers. Using sprintf()
 	  was not the answer. I decided to use the

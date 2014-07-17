@@ -8,11 +8,10 @@ Module::Build->new(
     module_name       => 'Finance::YahooJPN::Quote',
     dist_version_from => 'Quote.pm',
     dist_author       => 'Masanori HATA <http://www.mihr.net/> (Saitama, JAPAN)',
-    dist_abstract     => 'Fetch historical stock quotes in Japan from Yahoo! Japan Finance.',
+    dist_abstract     => 'Fetch historical Japanese stock quotes on Yahoo! Japan Finance.',
     license           => 'perl',
     requires          => {
         'perl'        => '5.16.3',
-        'Math::Round' => '0.06',
     },
     recommends        => {
         'perl'              => '5.20.0',
